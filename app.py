@@ -27,7 +27,7 @@ if "banco_dados" not in st.session_state:
 if "modo_administrador" not in st.session_state:
     st.session_state.modo_administrador = False
 
-# --- LEITURA DO TOKEN EXCLUSIVO DA URL (NÃO EXIGE LOGIN) ---
+# --- LEITURA DO TOKEN EXCLUSIVO DA URL ---
 url_params = st.query_params
 token_acesso = url_params.get("token", None)
 
@@ -58,17 +58,17 @@ def enviar_email_individual(meu_email, minha_senha_app, email_destino, nome_assi
         
         corpo = f"""Olá, {nome_assinante}.
 
-Você foi incluído como assinante de um documento oficial em nossa plataforma.
+Você foi incluído como assinante de um documento oficial.
 
-⚠️ INSTRUÇÕES IMPORTANTES PARA A ASSINATURA:
+⚠️ INSTRUÇÕES:
 1. Confira a grafia do seu nome para a assinatura: {nome_assinante}
-2. Acesse a plataforma pelo seu link exclusivo de acesso seguro:
+2. Acesse a plataforma pelo seu link exclusivo:
 {link_personalizado}
 
-3. Leia atentamente a minuta do documento disponível na tela.
-4. Digite obrigatoriamente o seu NOME COMPLETO (exatamente com a grafia acima) e o seu CPF para validar o documento.
+3. Leia atentamente a minuta na tela.
+4. Digite seu NOME COMPLETO e seu CPF para validar.
 
-Não é necessário criar conta ou fazer login para assinar.
+Não é necessário fazer login para assinar.
 """
         msg.attach(MIMEText(corpo, 'plain', 'utf-8'))
         
@@ -153,7 +153,7 @@ with st.sidebar:
             st.session_state.modo_administrador = False
             st.rerun()
 
-# --- DEFINIÇÃO DAS ABAS DISPONÍVEIS CONFORME PERMISSÃO ---
+# --- DEFINIÇÃO DAS ABAS DISPONÍVEIS ---
 if st.session_state.modo_administrador:
     aba1, aba2, aba3 = st.tabs(["Painel do Criador", "Página do Assinante", "Histórico do Lote"])
 else:
@@ -165,7 +165,7 @@ if st.session_state.modo_administrador:
         col1, col2 = st.columns(2)
         with col1:
             campo_meu_email = st.text_input("Seu Gmail de Envio", value=GMAIL_PADRAO)
-            campo_minha_senha = st.text_input("Sua Senha de App do Gmail (16 letras)", type="password", placeholder="Digite as 16 letras aqui")
+            campo_minha_senha = st.text_input("Senha de App (16 letras)", type="password")
             campo_link_sistema = st.text_input("Link do seu Sistema", value=LINK_SISTEMA_PADRAO)
             campo_arquivo = st.file_uploader("Arraste o PDF do Contrato", type=["pdf"])
             campo_lote = st.text_area("Lista de Assinantes (Nome; E-mail)", placeholder="João Silva; joao@email.com", height=150)
@@ -181,7 +181,7 @@ if st.session_state.modo_administrador:
             else:
                 st.info("Aguardando o envio do primeiro lote...")
 
-# --- CONTEÚDO: PÁGINA DO ASSINANTE (PÚBLICA / FILTRADA POR TOKEN) ---
+# --- CONTEÚDO: PÁGINA DO ASSINANTE ---
 with aba2:
     st.title("🖋️ Assinatura Eletrônica de Documentos")
     
@@ -195,17 +195,5 @@ with aba2:
     st.subheader("1. Minuta do Documento para Leitura")
     if st.session_state.banco_dados["conteudo_original"] is not None:
         st.download_button(
-            label="📖 Abrir minuta em nova aba / Baixar para leitura",
-            data=st.session_state.banco_dados["conteudo_original"],
-            file_name="minuta_para_leitura.pdf",
-            mime="application/pdf"
-        )
-        st.info("Utilize o botão acima para analisar integralmente o teor do documento antes de preencher a assinatura abaixo.")
-    else:
-        st.warning("Nenhum documento ativo para assinatura no momento. Aguarde o envio do link oficial pelo organizador.")
-
-    st.subheader("2. Identificação e Validação")
-    col3, col4 = st.columns(2)
-    with col3:
-        nome_sugerido = assinante_atual["nome"] if assinante_atual else ""
-        campo_nome_cliente = st.text_input("Nome Completo do Assinante", value=nome_sugerido, placeholder="Exatamente como recebido no e
+            label="📖 Abrir minuta para leitura",
+            data=st.session_state.banco_dados
