@@ -22,56 +22,30 @@ GMAIL_PADRAO = "soiassinadorpmlp@gmail.com"
 LINK_SISTEMA_PADRAO = "https://soiassinador.streamlit.app"
 SPREADSHEET_ID = "13Vyiy-XBzR969JPTMJlWK3gpKcLRi9ftVRcO3kinoWE"
 
-# --- RECONSTRUÇÃO LIMPA DA CHAVE PRIVADA (À PROVA DE FALHAS DE ESPAÇO) ---
-corpo_chave_puro = (
-    "MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDB3GkUge7oI5Qp"
-    "dtggpWhjkDpngZuhlRitG1TSF3yAovrXwyoG0COT17wkSqqc/a9Jygt1Lht+iEV7"
-    "/W7YdHrUr6KpRYTMjP6zmPNrsFg3o5DqhXcDrz02H9aoz0ijxkqEpSRoDo7x7mrc"
-    "yauFRErakdTIld0acmErGLexn8jmEElpALDTkfbX2Cvcv37V7OMhcwNRTg7Xrsbu"
-    "Iw+asprtY0dGCqyLusPqg4kcujDRSK3lwJpDAt1Pvj7/vjUQp5ml+2RX40FIABIN"
-    "V+8coXDciTZL8CqkkXCrRIhDGtvF5qIV9wz5+v8bTmY4XAigx3cdLcblHDVHCpJv"
-    "mnZ9Lsj/AgMBAAECggEAYFKWt4TT4u4CqROO0bG+C3JXQqSoYoHFcAWbgIQA7Z2N"
-    "S3WCRT5X3xabOeELotN9rAlC5idRq+4jsDa9Q7mkalcWWErdcBFCYJRHpqNJQeP4"
-    "lj5YYzFIFcN+EgRkUFOvJPc0/qr1JYpT+H4PxjinhLBe7IdiA8j/NL2kUBJXbM+f"
-    "bEZ1zUq+mF7KV3Aeg1idb6Sf3ng9SLGCncgo28OxuGyOb3QnHEu8/ssCQVVl/i4y"
-    "DruaUkIZCLWAZ6YA6gUYDKvQQ3eL7Rx7j9TrxnaVxD4UcDYimN0Aq5WijeYMtBy+"
-    "rTP+RRN3j9sPW1hzDsYw7txpPgrtDpe/tmODODNGOQKBgQDjemKHtp0tG6+p9R1n"
-    "my+0IbmaKtOPw9fj27qRQnjOVtJZ22TC0fpmtkxrhwbDzy1Z7o7c/jj1JOzvMqE"
-    "jQ/CwnHe/mjMoO8lM/5csNCpKj2A9p0zuVE8WRGMVoJRvuQUMq0g9oDv9rnkk70U"
-    "uzgXs+EonXZF7K5pF6kqXubvYwKBgQDaKvsRwgwZS1kQPyVTglmd+PBsOzmBe9PX"
-    "k2mMwXU6zNdMZsB/LDP3xLKBGmalYz6F2z2mPC1GuqaZKk90LZYT7cQtbBinOsCi"
-    "6k/Fgt77/GKswQBE3BS1mBBECwgTdMl448NXh4gUUjpe3BoyeVWLYZ2fzzCtW6CU"
-    "Tvp9oCTYtQKBgQDN3+imrPZpacI9DnLzXrb4zwD8b0ATwAp21Vlvt/o/vMIZwv7Z"
-    "d1KpfNmDA6xysOF5n/c6OPbxnt60yVystJAMExEd4aCVeh2VzQ2rc/cU8v7A5fF2"
-    "a4UDGhVQrsa5Fwuy3/5ic9ZT1zd8kN0ykxJ8GTdxG7l8JW3f/SMEDunwwwKBgQCY"
-    "dibkvw3Dc3N3Nhm4urindexm4URJcFlb2XuTcFyXr224rs1k3ResTbZCaTqb8Lqq"
-    "HDAVbiiYVKFdlXoyjme0a+wAjYbuwF8zOvJzk0xhzYsXxSBdSoAOqAWvGXnjebQM"
-    "SQVIy3msYMb3WUCQqvIdroUkNsTAVeRYdOtYisrKOfM1bX+ybQKBgGBmnRA9rSmk"
-    "CUvIFdOSna5TLa3gv2FW3WdEAihH4DsAtpFZHrmDzkaTJfU4hJcVBciJ7d79Ch6v"
-    "NNp6P0U87XfnbPDFOK7w4+zvSvNJ3x0Uqwh8YEv+wIR0dai8Y133fL5r+VZ++Nkc"
-    "85lwZf/Ji+YmrHSF3MwAVrNhu5z2S6YFZ"
-)
-
-# Monta o PEM final inserindo as quebras obrigatorias
-chave_privada_final = f"-----BEGIN PRIVATE KEY-----\n{corpo_chave_puro}\n-----END PRIVATE KEY-----\n"
-
+# --- CREDENCIAIS DIRETAS DO GOOGLE ---
 credenciais_dict = {
   "type": "service_account",
   "project_id": "soi-assinador",
   "private_key_id": "eaaef78044d8efc923f18954f006bb24d0411e58",
-  "private_key": chave_privada_final,
+  "private_key": r"-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCpPvjTTPOpXt7E\nH8ANQjWbiDWHWz8VjHhIxCrMAYxIc3Ge9fmBNqC99UM4NMCPamzFtu2FfU87zx5F\nbaCpVYBmSxzclTf7r+7Zmkd5qPJYK3BHylajH7lVGqSaXply78xtKV7KMcDFgKUV\nsmWf/5AsJGprvVb9nY6Kq2OKHa3wi2+isX7EzLNG2NpeWS9k/tG6cI3uQ91EFTRd\n9URkENfySweM3gfGPduJfZuI0eK5UQ5oHDlZzPA/4QOEj/lkLrFJlpNZ1B7Vn93B\nnod0lrf5n4bgrpliz/+kOEhk7PLhv8EvbNB662GV0i1aK31oN4cUoBI8yMvHLhF9\njRRhmNEnAgMBAAECggEAM/hy1wvHvMg1lrr7MfcVWBO9ADoMRpUycIHQdIG7LppI\nlxwISF3agUpZoF5OjRuMmDACgt3GYWLJ9F7kGWt4eLDzBWdK4B4XtblS3nB7Loj0\nOw9OiFvbAN+kEQUgkLNDLngoM+WQQPWue9mirD2Ba5SpGzlyh4GEvl8/uy8+9OCU\nYVaTY8llP++WfecEldqvwTOB3cPcNo8qC+7bAVwHbp2yiz2HfBqw6dQz0NuzHPK7\n+am+h0ZNirxEn2ZBo3GaN3u2XPYTQ4P2NPBbxRjfniGHjNa5m0BdO2R/NpTWX/vW\nT3Qp9mZ5p1PfY2MJEQsXtbwN6qxNsgRfBLcprhWiZQKBgQDa38FYdxHQjbYLeRZQ\nF36rh4dyxK771uwo7zoULemBZenclYfPP3otCyiWzs1AwQW2sMgcfRv1dEn9q+S3\nlsAzwT3d0GPCZs6FYvRtBtUFBwcDUBpOT4v2gWdg7cQJGcWyzYEINy+W7WbQs3Qd\nR+uCUoqeHJwEIfPFepSfK/lqqwKBgQDF9DMyuIymwMiCqoxVytkXfRn0Arq0yKMj\nPqKTB8rPPdiR2LXkJCaAxk4T0bD7InJYew33vhSxsDK1U+3HsV3OEsZ6nkN/jcvi\nmGwoFci2OSMcehq9f9AV76zqZymqDvtOMVjQPV4aJxsKOtNhhkIzhaTT9h37Gnff\nHs7HiREzdQKBgQDKi9Z473dk8D9PTrb/Vz65raoC41CrbbEOEJRGqFY2kQFiSF5t\nw+hkVrcxGB+JlRacgewtsPl2pC70uWXnH3Kucl22L2qiNFFZzsEzQ+dNx7sNrcsq\nPSLg88+fO2j2owr49IQ7/hXkLb2/1NHXZv7ik1AEEaWvjVvxnAZ9ZkxiEQKBgFKh\nrmGE0gmlvc11neEOLPL2IMhP/1oJyreipMCVZx59ZZL0EHFseboVjXAOfz9F0M+I\nhnsdGIxXzcMNhttt+YdVJQ74U5rCORKcp8FP3pnaXgK8Ib9qxBT0GI08hRLc8CBi\nzv0WMNrf6hSqG6TBI49YQUbNnRQ9pz43IQAAAnMlAoGBAMtS16j3H35cOeGULuh9\noMfUFIUPpBveuMP6rVohAz9KpOwChVU4EG+0/ILs1mGYivZLrIczBpFgkquME4OT\n/NoEymjC8pn/KSmCsbT7aLr3d2yolF3WN6sdbymjN5GVDoqwkyycWhDCcwrd97pV\nXdXaeg1dyoshfJ8vVT+OlX+z\n-----END PRIVATE KEY-----\n",
   "client_email": "assinador-sheets@soi-assinador.iam.gserviceaccount.com",
   "client_id": "104754261635399610959",
   "auth_uri": "https://accounts.google.com/o/oauth2/auth",
   "token_uri": "https://oauth2.googleapis.com/token",
-  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/raw/v1/certs",
   "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/assinador-sheets%40soi-assinador.iam.gserviceaccount.com"
 }
 
 # --- CONEXÃO DIRETA COM GOOGLE SHEETS ---
 def obter_cliente_sheets():
     escopos = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-    creds = Credentials.from_service_account_info(credenciais_dict, scopes=escopos)
+    dados_sanitizados = credenciais_dict.copy()
+    
+    # Tratamento via código para converter as quebras de linha de forma segura na memória
+    if "\\n" in dados_sanitizados["private_key"]:
+        dados_sanitizados["private_key"] = dados_sanitizados["private_key"].replace("\\n", "\n")
+        
+    creds = Credentials.from_service_account_info(dados_sanitizados, scopes=escopos)
     return gspread.authorize(creds)
 
 def ler_dados_planilha():
@@ -253,10 +227,4 @@ with aba2:
                 st.success("Assinatura confirmada e registrada no Google Sheets!")
                 st.balloons()
 
-# --- CONTEÚDO: HISTÓRICO ---
-if autenticado:
-    with aba3:
-        st.subheader("Histórico de Assinaturas (Realtime)")
-        dados_finais = ler_dados_planilha()
-        if dados_finais:
-            st.dataframe(pd.DataFrame(dados_finais), width="stretch")
+# --- CONTEÚDO: HISTÓRICO
