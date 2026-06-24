@@ -130,4 +130,38 @@ def criador_processa_lote(arquivo_pdf, texto_assinantes, meu_email, minha_senha_
 1. Hash SHA-256: {st.session_state.banco_dados['hash_seguranca']}
 2. Disparos: {emails_enviados} e-mails enviados com sucesso.
 3. Linhas ignoradas: {linhas_ignoradas}
-4. Total na memória: {total_cadast
+4. Total na memória: {total_cadastrados} assinantes cadastrados."""
+    
+    st.session_state.relatorio_envio = relatorio
+    st.success("Lote disparado com sucesso!")
+
+# --- MENU LATERAL DE ACESSO RESTRITO ---
+with st.sidebar:
+    st.subheader("Acesso Restrito")
+    if not st.session_state.modo_administrador:
+        senha_admin = st.text_input("Senha do Criador", type="password")
+        if st.button("Liberar Painel"):
+            if senha_admin == "ChaveMestra123":
+                st.session_state.modo_administrador = True
+                st.query_params.clear()
+                st.rerun()
+            else:
+                st.error("Senha incorreta.")
+    else:
+        st.success("Modo Criador Ativo")
+        if st.button("Sair do Painel (Modo Assinante)"):
+            st.session_state.modo_administrador = False
+            st.rerun()
+
+# --- DEFINIÇÃO DAS ABAS DISPONÍVEIS CONFORME PERMISSÃO ---
+if st.session_state.modo_administrador:
+    aba1, aba2, aba3 = st.tabs(["Painel do Criador", "Página do Assinante", "Histórico do Lote"])
+else:
+    aba2, = st.tabs(["Página do Assinante"])
+
+# --- CONTEÚDO: PAINEL DO CRIADOR (ADMIN) ---
+if st.session_state.modo_administrador:
+    with aba1:
+        col1, col2 = st.columns(2)
+        with col1:
+            campo_meu_email = st.text_input
