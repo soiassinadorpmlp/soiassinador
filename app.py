@@ -39,7 +39,7 @@ def salvar_dados_planilha(lista_assinantes):
     except Exception as e:
         st.error(f"Erro ao salvar na planilha: {e}")
 
-# --- MEMÓRIA DO ARQUIVO ORIGINAL (SESSÃO CURTA) ---
+# --- MEMÓRIA DO ARQUIVO ORIGINAL ---
 if "pdf_original_conteudo" not in st.session_state:
     st.session_state.pdf_original_conteudo = None
 if "hash_seguranca" not in st.session_state:
@@ -47,6 +47,21 @@ if "hash_seguranca" not in st.session_state:
 
 # --- LEITURA DO TOKEN DA URL ---
 token_acesso = st.query_params.get("token", None)
+
+def obter_tabela_historico():
+    lista_banco = ler_dados_planilha()
+    if not lista_banco:
+        return []
+    dados_tabela = []
+    for a in lista_banco:
+        dados_tabela.append({
+            "Nome": a.get("nome", "-"),
+            "E-mail": a.get("email", "-"),
+            "Status": a.get("status", "-"),
+            "CPF": a.get("cpf", "-"),
+            "Data": a.get("data", "-")
+        })
+    return dados_tabela
 
 # --- MOTOR DE DISPARO DE E-MAIL ---
 def enviar_email_individual(meu_email, minha_senha, destino, nome, link):
@@ -89,7 +104,8 @@ def criador_processa_lote(arquivo, texto, meu_email, minha_senha, link_sistema):
     
     novos_assinantes = []
     
-    for linha in lines:
+    # CORRIGIDO: Agora usa 'linhas' corretamente, eliminando o NameError
+    for linha in linhas:
         if ";" in linha:
             partes = linha.split(";")
             nome_limpo = partes[0].strip()
@@ -161,7 +177,7 @@ with aba2:
     
     if token_acesso and lista_banco:
         for a in lista_banco:
-            if str(a["token"]) == str(token_acesso):
+            if str(a.get("token")) == str(token_acesso):
                 assinante_atual = a
                 break
 
@@ -188,9 +204,9 @@ with aba2:
             for a in lista_banco:
                 valido = False
                 if token_acesso:
-                    valido = (str(a["token"]) == str(token_acesso) and a["status"] == "Pendente")
+                    valido = (str(a.get("token")) == str(token_acesso) and a.get("status") == "Pendente")
                 else:
-                    valido = (a["nome"].lower() == c_nome.lower() and a["status"] == "Pendente")
+                    valido = (str(a.get("nome")).lower() == c_nome.lower() and a.get("status") == "Pendente")
                     
                 if valido:
                     a["status"] = "Assinado"
