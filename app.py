@@ -44,7 +44,19 @@ def enviar_email_individual(meu_email, minha_senha_app, email_destino, nome_assi
         msg['To'] = email_destino
         msg['Subject'] = "Assinatura Pendente - Plataforma Digital"
         
-        corpo = f"Olá, {nome_assinante}.\n\nVocê foi incluído como assinante de um documento.\nAcesse o sistema e digite seu CPF para assinar.\n"
+        # Texto do e-mail atualizado com as novas instruções de obrigatoriedade
+        corpo = f"""Olá, {nome_assinante}.
+
+Você foi incluído como assinante de um documento oficial em nossa plataforma.
+
+⚠️ INSTRUÇÕES IMPORTANTES PARA A ASSINATURA:
+1. Confira a grafia do seu nome para a assinatura: {nome_assinante}
+2. Acesse a plataforma pelo link seguro abaixo.
+3. Na aba 'Página do Assinante', você deverá digitar obrigatoriamente o seu NOME COMPLETO (exatamente com a grafia acima) e o seu CPF para validar o documento.
+
+Link de acesso seguro:
+{link_assinatura}
+"""
         msg.attach(MIMEText(corpo, 'plain', 'utf-8'))
         
         servidor = smtplib.SMTP_SSL(servidor_smtp, porta)
@@ -56,13 +68,15 @@ def enviar_email_individual(meu_email, minha_senha_app, email_destino, nome_assi
         return False
 
 # --- PROCESSAR ENTRADA DE LOTE ---
-def criador_processa_lote(arquivo_pdf, texto_assinantes, meu_email, minha_senha_app):
+def criador_processa_lote(arquivo_pdf, texto_assinantes, meu_email, minha_senha_app, link_sistema):
     if arquivo_pdf is None:
         return st.error("ERRO: Anexe um arquivo PDF.")
     if not texto_assinantes.strip():
         return st.error("ERRO: Insira pelo menos 1 assinante.")
     if not meu_email or not minha_senha_app:
         return st.error("ERRO: Configure suas credenciais de e-mail.")
+    if not link_sistema.strip():
+        return st.error("ERRO: Insira o link do seu sistema para enviar aos assinantes.")
 
     st.session_state.banco_dados["caminho_original"] = arquivo_pdf.name
     st.session_state.banco_dados["conteudo_original"] = arquivo_pdf.getvalue()
@@ -82,14 +96,13 @@ def criador_processa_lote(arquivo_pdf, texto_assinantes, meu_email, minha_senha_
             nome = partes[0].strip()
             email = partes[1].strip()
             token = secrets.token_hex(4)
-            link_simulado = "Acesse a aba do assinante no menu superior."
             
             st.session_state.banco_dados["assinantes"].append({
                 "nome": nome, "email": email, "token": token,
                 "cpf": "", "status": "Pendente", "data": "-"
             })
             
-            sucesso = enviar_email_individual(meu_email, minha_senha_app, email, nome, link_simulado)
+            sucesso = enviar_email_individual(meu_email, minha_senha_app, email, nome, link_sistema)
             if sucesso:
                 emails_enviados += 1
         else:
@@ -115,6 +128,7 @@ with aba1:
     with col1:
         campo_meu_email = st.text_input("Seu Gmail de Envio", placeholder="seu_email@gmail.com")
         campo_minha_senha = st.text_input("Sua Senha de App do Gmail (16 letras)", type="password")
+        campo_link_sistema = st.text_input("Link do seu Sistema (Copie da barra de endereços)", placeholder="https://seu-app.streamlit.app")
         campo_arquivo = st.file_uploader("Arraste o PDF do Contrato", type=["pdf"])
         campo_lote = st.text_area(
             "Lista de Assinantes (Formato: Nome; E-mail)", 
@@ -122,7 +136,7 @@ with aba1:
             height=150
         )
         if st.button("🚀 Disparar E-mails para o Lote", type="primary"):
-            criador_processa_lote(campo_arquivo, campo_lote, campo_meu_email, campo_minha_senha)
+            criador_processa_lote(campo_arquivo, campo_lote, campo_meu_email, campo_minha_senha, campo_link_sistema)
             st.rerun()
             
     with col2:
@@ -135,7 +149,7 @@ with aba1:
 with aba2:
     col3, col4 = st.columns(2)
     with col3:
-        campo_nome_cliente = st.text_input("Nome Completo do Assinante")
+        campo_nome_cliente = st.text_input("Nome Completo do Assinante (Idêntico ao recebido por e-mail)")
         campo_cpf_cliente = st.text_input("Digite seu CPF para assinar")
         
         if st.button("✍️ Confirmar Assinatura Digital"):
@@ -154,94 +168,4 @@ with aba2:
                         break
                 
                 if not encontrado:
-                    st.error("ERRO: Nome inválido, não cadastrado ou já assinado.")
-                else:
-                    st.success(f"Obrigado, {campo_nome_cliente}! Assinatura registrada.")
-                    
-                    # GERAR FOLHA DE ASSINATURAS
-                    pdf_folha = "folha_assinaturas_lote.pdf"
-                    c = canvas.Canvas(pdf_folha, pagesize=letter)
-                    c.setLineWidth(1)
-                    c.setStrokeColorRGB(0.7, 0.7, 0.7)
-                    c.rect(40, 40, 532, 712)
-                    c.setFont("Helvetica-Bold", 16)
-                    c.setFillColorRGB(0.1, 0.2, 0.4)
-                    c.drawString(60, 710, "PROTOCOLO DE ASSINATURAS DIGITAIS")
-                    c.setFont("Helvetica", 10)
-                    c.setFillColorRGB(0.3, 0.3, 0.3)
-                    c.drawString(60, 690, "Identificador Único (Hash SHA-256) do Original:")
-                    c.setFont("Helvetica-Oblique", 9)
-                    c.drawString(60, 675, f"{st.session_state.banco_dados['hash_seguranca']}")
-                    c.setLineWidth(0.5)
-                    c.line(60, 660, 552, 660)
-                    
-                    y = 620
-                    for a in st.session_state.banco_dados["assinantes"]:
-                        if y < 80:
-                            c.showPage()
-                            y = 710
-                        c.setFillColorRGB(0.96, 0.96, 0.98)
-                        c.rect(60, y - 45, 492, 55, fill=1, stroke=0)
-                        c.setFillColorRGB(0, 0, 0)
-                        c.setFont("Helvetica-Bold", 11)
-                        c.drawString(70, y, f"Assinante: {a['nome']}")
-                        c.setFont("Helvetica", 9)
-                        c.setFillColorRGB(0.2, 0.2, 0.2)
-                        c.drawString(70, y - 18, f"E-mail: {a['email']}")
-                        
-                        if a["status"] == "Assinado":
-                            c.setFillColorRGB(0.1, 0.5, 0.2)
-                            status_texto = f"STATUS: ASSINADO | CPF: {a['cpf']} | Data: {a['data']}"
-                        else:
-                            c.setFillColorRGB(0.7, 0.1, 0.1)
-                            status_texto = "STATUS: PENDENTE"
-                        c.setFont("Helvetica-Bold", 9)
-                        c.drawString(70, y - 34, status_texto)
-                        y -= 70
-                    c.save()
-
-                    # COMPILAR ARQUIVO FINAL
-                    pdf_final_caminho = "documento_lote_finalizado.pdf"
-                    escritor = PdfWriter()
-                    
-                    with open("temp_orig.pdf", "wb") as f_temp:
-                        f_temp.write(st.session_state.banco_dados["conteudo_original"])
-                        
-                    for pagina in PdfReader("temp_orig.pdf").pages:
-                        escritor.add_page(pagina)
-                    for pagina in PdfReader(pdf_folha).pages:
-                        escritor.add_page(pagina)
-                        
-                    escritor.encrypt(user_password="", owner_password="ChaveMestra123", permissions_flag=4)
-                    with open(pdf_final_caminho, "wb") as f:
-                        escritor.write(f)
-                        
-                    with open(pdf_final_caminho, "rb") as f_final:
-                        st.session_state.pdf_final_bytes = f_final.read()
-                    st.rerun()
-
-    with col4:
-        st.subheader("Acompanhamento")
-        todos_assinaram = all(a["status"] == "Assinado" for a in st.session_state.banco_dados["assinantes"]) if st.session_state.banco_dados["assinantes"] else False
-        
-        if "pdf_final_bytes" in st.session_state:
-            if todos_assinaram:
-                st.balloons()
-                st.success("Perfeito! Todos assinaram o documento.")
-            else:
-                st.warning("Assinatura salva. Aguardando os demais participantes.")
-                
-            st.download_button(
-                label="📥 Baixar PDF Final com Protocolo",
-                data=st.session_state.pdf_final_bytes,
-                file_name="contrato_finalizado.pdf",
-                mime="application/pdf"
-            )
-
-with aba3:
-    st.subheader("Monitoramento do Lote Ativo")
-    tabela = obter_tabela_historico()
-    if tabela:
-        st.dataframe(tabela, use_container_width=True)
-    else:
-        st.info("Nenhum documento sendo processado no momento.")
+                    st.error("ERRO: Nome inválido, não cadastrado ou já assinado. Verifique a grafia exata enviada no seu e-mail
