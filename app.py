@@ -153,15 +153,4 @@ with st.sidebar:
             st.session_state.modo_administrador = False
             st.rerun()
 
-# --- DEFINIÇÃO DAS ABAS DISPONÍVEIS CONFORME PERMISSÃO ---
-if st.session_state.modo_administrador:
-    aba1, aba2, aba3 = st.tabs(["Painel do Criador", "Página do Assinante", "Histórico do Lote"])
-else:
-    aba2, = st.tabs(["Página do Assinante"])
-
-# --- CONTEÚDO: PAINEL DO CRIADOR (ADMIN) ---
-if st.session_state.modo_administrador:
-    with aba1:
-        col1, col2 = st.columns(2)
-        with col1:
-            campo_meu_email = st.text_input
+# --- DEFINIÇÃO DAS AB
