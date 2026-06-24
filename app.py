@@ -4,8 +4,10 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import streamlit as st
-from streamlit_gsheets import GSheetsConnection
 import pandas as pd
+from gspread_dataframe import set_with_dataframe
+import gspread
+from google.oauth2.service_account import Credentials
 from pypdf import PdfReader, PdfWriter
 
 # --- CONFIGURAÇÃO DA INTERFACE ---
@@ -18,24 +20,46 @@ st.set_page_config(
 # --- CONFIGURAÇÕES FIXAS ---
 GMAIL_PADRAO = "soiassinadorpmlp@gmail.com"
 LINK_SISTEMA_PADRAO = "https://soiassinador.streamlit.app"
+SPREADSHEET_ID = "13Vyiy-XBzR969JPTMJlWK3gpKcLRi9ftVRcO3kinoWE"
 
-# --- CONEXÃO COM O GOOGLE SHEETS ---
-try:
-    conn = st.connection("gsheets", type=GSheetsConnection)
-except Exception as e:
-    st.error("Erro ao conectar com o Google Sheets. Verifique os Secrets.")
+# --- CREDENCIAIS DIRETAS DO GOOGLE ---
+credenciais_dict = {
+  "type": "service_account",
+  "project_id": "soi-assinador",
+  "private_key_id": "eaaef78044d8efc923f18954f006bb24d0411e58",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDB3GkUge7oI5Qp\ndtggpWhjkDpngZuhlRitG1TSF3yAovrXwyoG0COT17wkSqqc/a9Jygt1Lht+iEV7\n/W7YdHrUr6KpRYTMjP6zmPNrsFg3o5DqhXcDrz02H9aoz0ijxkqEpSRoDo7x7mrc\nyauFRErakdTIld0acmErGLexn8jmEElpALDTkfbX2Cvcv37V7OMhcwNRTg7Xrsbu\nIw+asprtY0dGCqyLusPqg4kcujDRSK3lwJpDAt1Pvj7/vjUQp5ml+2RX40FIABIN\nV+8coXDciTZL8CqkkXCrRIhDGtvF5qIV9wz5+v8bTmY4XAigx3cdLcblHDVHCpJv\nmnZ9Lsj/AgMBAAECggEAYFKWt4TT4u4CqROO0bG+C3JXQqSoYoHFcAWbgIQA7Z2N\nS3WCRT5X3xabOeELotN9rAlC5idRq+4jsDa9Q7mkalcWWErdcBFCYJRHpqNJQeP4\nlj5YYzFIFcN+EgRkUFOvJPc0/qr1JYpT+H4PxjinhLBe7IdiA8j/NL2kUBJXbM+f\nbEZ1zUq+mF7KV3Aeg1idb6Sf3ng9SLGCncgo28OxuGyOb3QnHEu8/ssCQVVl/i4y\nDruaUkIZCLWAZ6YA6gUYDKvQQ3eL7Rx7j9TrxnaVxD4UcDYimN0Aq5WijeYMtBy+\nrTP+RRN3j9sPW1hzDsYw7txpPgrtDpe/tmODODNGOQKBgQDjemKHtp0tG6+p9R1n\nmy+0IbmaKtOPw9fj27qRQnjOVtJZ22TC0fpmtkxrhwbDzy1Z7o7c/jj1JOzvMqE\njQ/CwnHe/mjMoO8lM/5csNCpKj2A9p0zuVE8WRGMVoJRvuQUMq0g9oDv9rnkk70U\numzgXs+EonXZF7K5pF6kqXubvYwKBgQDaKvsRwgwZS1kQPyVTglmd+PBsOzmBe9PX\nk2mMwXU6zNdMZsB/LDP3xLKBGmalYz6F2z2mPC1GuqaZKk90LZYT7cQtbBinOsCi\n6k/Fgt77/GKswQBE3BS1mBBECwgTdMl448NXh4gUUjpe3BoyeVWLYZ2fzzCtW6CU\nTvp9oCTYtQKBgQDN3+imrPZpacI9DnLzXrb4zwD8b0ATwAp21Vlvt/o/vMIZwv7Z\nd1KpfNmDA6xysOF5n/c6OPbxnt60yVystJAMExEd4aCVeh2VzQ2rc/cU8v7A5fF2\na4UDGhVQrsa5Fwuy3/5ic9ZT1zd8kN0ykxJ8GTdxG7l8JW3f/SMEDunwwwKBgQCY\ndibkvw3Dc3N3Nhm4pURJcFlb2XuTcFyXr224rs1k3ResTbZCaTqb8LqqHDAVbiiY\nVKFdlXoyjme0a+wAjYbuwF8zOvJzk0xhzYsXxSBdSoAOqAWvGXnjebQMSQVIy3ms\nYMb3WUCQqvIdroUkNsTAVeRYdOtYisrKOfM1bX+ybQKBgGBmnRA9rSmkCUvIFdOS\nna5TLa3gv2FW3WdEAihH4DsAtpFZHrmDzkaTJfU4hJcVBciJ7d79Ch6vNNp6P0U87\nXfnbPDFOK7w4+zvSvNJ3x0Uqwh8YEv+wIR0dai8Y133fL5r+VZ++Nkc85lwZf/Ji\n+YmrHSF3MwAVrNhu5z2S6YFZ\n-----END PRIVATE KEY-----\n",
+  "client_email": "assinador-sheets@soi-assinador.iam.gserviceaccount.com",
+  "client_id": "104754261635399610959",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/raw/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/assinador-sheets%40soi-assinador.iam.gserviceaccount.com"
+}
+
+# --- CONEXÃO DIRETA COM GOOGLE SHEETS ---
+def obter_cliente_sheets():
+    escopos = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+    creds = Credentials.from_service_account_info(credenciais_dict, scopes=escopos)
+    return gspread.authorize(creds)
 
 def ler_dados_planilha():
     try:
-        df = conn.read(ttl="0d")
-        return df.to_dict(orient="records")
-    except:
+        gc = obter_cliente_sheets()
+        sh = gc.open_by_key(SPREADSHEET_ID)
+        worksheet = sh.get_worksheet(0)
+        return worksheet.get_all_records()
+    except Exception as e:
+        st.error(f"Erro ao ler planilha: {e}")
         return []
 
 def salvar_dados_planilha(lista_assinantes):
     try:
+        gc = obter_cliente_sheets()
+        sh = gc.open_by_key(SPREADSHEET_ID)
+        worksheet = sh.get_worksheet(0)
+        worksheet.clear()
         df = pd.DataFrame(lista_assinantes)
-        conn.update(data=df)
+        set_with_dataframe(worksheet, df)
     except Exception as e:
         st.error(f"Erro ao salvar na planilha: {e}")
 
@@ -45,23 +69,7 @@ if "pdf_original_conteudo" not in st.session_state:
 if "hash_seguranca" not in st.session_state:
     st.session_state.hash_seguranca = None
 
-# --- LEITURA DO TOKEN DA URL ---
 token_acesso = st.query_params.get("token", None)
-
-def obter_tabela_historico():
-    lista_banco = ler_dados_planilha()
-    if not lista_banco:
-        return []
-    dados_tabela = []
-    for a in lista_banco:
-        dados_tabela.append({
-            "Nome": a.get("nome", "-"),
-            "E-mail": a.get("email", "-"),
-            "Status": a.get("status", "-"),
-            "CPF": a.get("cpf", "-"),
-            "Data": a.get("data", "-")
-        })
-    return dados_tabela
 
 # --- MOTOR DE DISPARO DE E-MAIL ---
 def enviar_email_individual(meu_email, minha_senha, destino, nome, link):
@@ -71,15 +79,7 @@ def enviar_email_individual(meu_email, minha_senha, destino, nome, link):
         msg['To'] = destino
         msg['Subject'] = "Assinatura Digital Pendente"
         
-        corpo = f"""Olá, {nome}.
-
-Você foi incluído para assinar um documento oficial.
-
-Acesse pelo link seguro abaixo:
-{link}
-
-Digite seu NOME e CPF para validar. Não precisa de login.
-"""
+        corpo = f"Olá, {nome}.\n\nVocê foi incluído para assinar um documento oficial.\n\nAcesse pelo link seguro abaixo:\n{link}\n\nDigite seu NOME e CPF para validar. Não precisa de login."
         msg.attach(MIMEText(corpo, 'plain', 'utf-8'))
         servidor = smtplib.SMTP_SSL("smtp.gmail.com", 465)
         servidor.login(meu_email, minha_senha)
@@ -104,10 +104,9 @@ def criador_processa_lote(arquivo, texto, meu_email, minha_senha, link_sistema):
     
     novos_assinantes = []
     
-    # CORRIGIDO: Agora usa 'linhas' corretamente, eliminando o NameError
     for linha in linhas:
         if ";" in linha:
-            partes = linha.split(";")
+            partes = connection = linha.split(";")
             nome_limpo = partes[0].strip()
             email_limpo = partes[1].strip()
             token = secrets.token_hex(4)
