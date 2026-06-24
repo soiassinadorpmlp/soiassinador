@@ -29,8 +29,8 @@ if "banco_dados" not in st.session_state:
     }
 
 # --- LEITURA DO TOKEN EXCLUSIVO DA URL ---
-url_params = st.query_params
-token_acesso = url_params.get("token", None)
+# Garante a persistência do parâmetro mesmo durante interações de clique
+token_acesso = st.query_params.get("token", None)
 
 def obter_tabela_historico():
     if not st.session_state.banco_dados["assinantes"]:
@@ -107,7 +107,7 @@ def criador_processa_lote(arquivo_pdf, texto_assinantes, meu_email, minha_senha_
     
     for linha in linhas:
         if ";" in linha:
-            partes = linha.split(";")
+            partes = inline = linha.split(";")
             nome_limpo = partes[0].strip()
             email_limpo = partes[1].strip()
             token = secrets.token_hex(4)
@@ -122,7 +122,6 @@ def criador_processa_lote(arquivo_pdf, texto_assinantes, meu_email, minha_senha_
             })
             
             link_personalizado = f"{base_url}?token={token}"
-            
             enviar_email_individual(meu_email, minha_senha_app, email_limpo, nome_limpo, link_personalizado)
             emails_enviados += 1
 
@@ -130,10 +129,9 @@ def criador_processa_lote(arquivo_pdf, texto_assinantes, meu_email, minha_senha_
     st.session_state.relatorio_envio = f"Lote processado! {emails_enviados} e-mails enviados. Total: {total_cadastrados}."
     st.success("Lote disparado com sucesso!")
 
-# --- MENU LATERAL DE ACESSO RESTRITO (MECANISMO SEGURO) ---
+# --- MENU LATERAL DE ACESSO RESTRITO ---
 with st.sidebar:
     st.subheader("Acesso Restrito")
-    # Usamos um botão do tipo checkbox para evitar loops de travamento de tela
     modo_admin = st.checkbox("Ativar Modo Criador")
     
     if modo_admin:
@@ -179,10 +177,11 @@ if autenticado:
 with aba2:
     st.title("🖋️ Assinatura Eletrônica de Documentos")
     
+    # Validação robusta de token na memória ativa
     assinante_atual = None
-    if token_acesso and st.session_state.banco_dados["assinantes"]:
+    if token_acesso and "banco_dados" in st.session_state and st.session_state.banco_dados["assinantes"]:
         for a in st.session_state.banco_dados["assinantes"]:
-            if a["token"] == token_acesso:
+            if str(a["token"]) == str(token_acesso):
                 assinante_atual = a
                 break
 
@@ -216,7 +215,7 @@ with aba2:
                 for a in st.session_state.banco_dados["assinantes"]:
                     valido = False
                     if token_acesso:
-                        valido = (a["token"] == token_acesso and a["status"] == "Pendente")
+                        valido = (str(a["token"]) == str(token_acesso) and a["status"] == "Pendente")
                     else:
                         valido = (a["nome"].lower() == campo_nome_cliente.lower() and a["status"] == "Pendente")
                         
@@ -232,7 +231,6 @@ with aba2:
                 else:
                     st.success("Assinatura registrada!")
                     
-                    # GERAR FOLHA DE ASSINATURAS
                     pdf_folha = "folha_assinaturas_lote.pdf"
                     c = canvas.Canvas(pdf_folha, pagesize=letter)
                     c.rect(40, 40, 532, 712)
@@ -248,7 +246,6 @@ with aba2:
                         y -= 70
                     c.save()
 
-                    # COMPILAR ARQUIVO FINAL
                     pdf_final_caminho = "documento_lote_finalizado.pdf"
                     escritor = PdfWriter()
                     
