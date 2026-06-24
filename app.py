@@ -9,7 +9,11 @@ from reportlab.pdfgen import canvas
 from pypdf import PdfReader, PdfWriter
 
 # --- CONFIGURAÇÃO DA INTERFACE ---
-st.set_page_config(page_title="Plataforma de Assinaturas", page_icon="🖋️", layout="wide")
+st.set_page_config(
+    page_title="Plataforma de Assinaturas",
+    page_icon="🖋️",
+    layout="wide"
+)
 
 # --- CONFIGURAÇÕES FIXAS DA PLATAFORMA ---
 GMAIL_PADRAO = "soiassinadorpmlp@gmail.com"
@@ -47,7 +51,13 @@ def obter_tabela_historico():
     return dados_tabela
 
 # --- MOTOR DE DISPARO REAL ---
-def enviar_email_individual(meu_email, minha_senha_app, email_destino, nome_assinante, link_personalizado):
+def enviar_email_individual(
+    meu_email, 
+    minha_senha_app, 
+    email_destino, 
+    nome_assinante, 
+    link_personalizado
+):
     try:
         servidor_smtp = "smtp.gmail.com"
         porta = 465
@@ -81,7 +91,13 @@ Não é necessário fazer login para assinar.
         return False
 
 # --- PROCESSAR ENTRADA DE LOTE ---
-def criador_processa_lote(arquivo_pdf, texto_assinantes, meu_email, minha_senha_app, link_sistema):
+def criador_processa_lote(
+    arquivo_pdf, 
+    texto_assinantes, 
+    meu_email, 
+    minha_senha_app, 
+    link_sistema
+):
     if arquivo_pdf is None:
         return st.error("ERRO: Anexe um arquivo PDF.")
     if not texto_assinantes.strip():
@@ -113,13 +129,23 @@ def criador_processa_lote(arquivo_pdf, texto_assinantes, meu_email, minha_senha_
             token = secrets.token_hex(4)
             
             st.session_state.banco_dados["assinantes"].append({
-                "nome": nome_limpo, "email": email_limpo, "token": token,
-                "cpf": "", "status": "Pendente", "data": "-"
+                "nome": nome_limpo, 
+                "email": email_limpo, 
+                "token": token,
+                "cpf": "", 
+                "status": "Pendente", 
+                "data": "-"
             })
             
             link_personalizado = f"{base_url}?token={token}"
             
-            sucesso = enviar_email_individual(meu_email, minha_senha_app, email_limpo, nome_limpo, link_personalizado)
+            sucesso = enviar_email_individual(
+                meu_email, 
+                minha_senha_app, 
+                email_limpo, 
+                nome_limpo, 
+                link_personalizado
+            )
             if sucesso:
                 emails_enviados += 1
         else:
@@ -144,56 +170,3 @@ with st.sidebar:
             if senha_admin == "ChaveMestra123":
                 st.session_state.modo_administrador = True
                 st.query_params.clear()
-                st.rerun()
-            else:
-                st.error("Senha incorreta.")
-    else:
-        st.success("Modo Criador Ativo")
-        if st.button("Sair do Painel (Modo Assinante)"):
-            st.session_state.modo_administrador = False
-            st.rerun()
-
-# --- DEFINIÇÃO DAS ABAS DISPONÍVEIS ---
-if st.session_state.modo_administrador:
-    aba1, aba2, aba3 = st.tabs(["Painel do Criador", "Página do Assinante", "Histórico do Lote"])
-else:
-    aba2, = st.tabs(["Página do Assinante"])
-
-# --- CONTEÚDO: PAINEL DO CRIADOR (ADMIN) ---
-if st.session_state.modo_administrador:
-    with aba1:
-        col1, col2 = st.columns(2)
-        with col1:
-            campo_meu_email = st.text_input("Seu Gmail de Envio", value=GMAIL_PADRAO)
-            campo_minha_senha = st.text_input("Senha de App (16 letras)", type="password")
-            campo_link_sistema = st.text_input("Link do seu Sistema", value=LINK_SISTEMA_PADRAO)
-            campo_arquivo = st.file_uploader("Arraste o PDF do Contrato", type=["pdf"])
-            campo_lote = st.text_area("Lista de Assinantes (Nome; E-mail)", placeholder="João Silva; joao@email.com", height=150)
-            
-            if st.button("🚀 Disparar E-mails para o Lote", type="primary"):
-                criador_processa_lote(campo_arquivo, campo_lote, campo_meu_email, campo_minha_senha, campo_link_sistema)
-                st.rerun()
-                
-        with col2:
-            st.subheader("Painel de Controle")
-            if "relatorio_envio" in st.session_state:
-                st.text_area("Relatório de Saída", st.session_state.relatorio_envio, height=250)
-            else:
-                st.info("Aguardando o envio do primeiro lote...")
-
-# --- CONTEÚDO: PÁGINA DO ASSINANTE ---
-with aba2:
-    st.title("🖋️ Assinatura Eletrônica de Documentos")
-    
-    assinante_atual = None
-    if token_acesso and st.session_state.banco_dados["assinantes"]:
-        for a in st.session_state.banco_dados["assinantes"]:
-            if a["token"] == token_acesso:
-                assinante_atual = a
-                break
-
-    st.subheader("1. Minuta do Documento para Leitura")
-    if st.session_state.banco_dados["conteudo_original"] is not None:
-        st.download_button(
-            label="📖 Abrir minuta para leitura",
-            data=st.session_state.banco_dados
