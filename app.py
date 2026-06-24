@@ -11,6 +11,9 @@ from pypdf import PdfReader, PdfWriter
 # --- CONFIGURAÇÃO DA INTERFACE ---
 st.set_page_config(page_title="Plataforma de Assinaturas", page_icon="🖋️", layout="wide")
 
+# --- CONFIGURAÇÕES FIXAS DA PLATAFORMA ---
+LINK_SISTEMA_PADRAO = "https://soiassinador.streamlit.app"
+
 # --- MEMÓRIA DO SISTEMA DE SESSÃO ---
 if "banco_dados" not in st.session_state:
     st.session_state.banco_dados = {
@@ -142,7 +145,6 @@ with st.sidebar:
 if st.session_state.modo_administrador:
     aba1, aba2, aba3 = st.tabs(["Painel do Criador", "Página do Assinante", "Histórico do Lote"])
 else:
-    # Para o cliente final, apenas a Página do Assinante existirá na interface
     aba2, = st.tabs(["Página do Assinante"])
 
 # --- CONTEÚDO: PAINEL DO CRIADOR (APENAS SE ADMIN) ---
@@ -152,7 +154,8 @@ if st.session_state.modo_administrador:
         with col1:
             campo_meu_email = st.text_input("Seu Gmail de Envio", placeholder="seu_email@gmail.com")
             campo_minha_senha = st.text_input("Sua Senha de App do Gmail (16 letras)", type="password")
-            campo_link_sistema = st.text_input("Link do seu Sistema", placeholder="https://seu-app.streamlit.app")
+            # Campo automatizado com o valor padrão fixado
+            campo_link_sistema = st.text_input("Link do seu Sistema", value=LINK_SISTEMA_PADRAO, placeholder="https://seu-app.streamlit.app")
             campo_arquivo = st.file_uploader("Arraste o PDF do Contrato", type=["pdf"])
             campo_lote = st.text_area(
                 "Lista de Assinantes (Nome; E-mail)", 
@@ -174,10 +177,8 @@ if st.session_state.modo_administrador:
 with aba2:
     st.title("🖋️ Assinatura Eletrônica de Documentos")
     
-    # Exibição da Minuta do Contrato
     st.subheader("1. Minuta do Documento para Leitura")
     if st.session_state.banco_dados["conteudo_original"] is not None:
-        # Mostra o PDF dentro de um frame elegante na tela
         st.download_button(
             label="📖 Abrir minuta em nova aba / Baixar para leitura",
             data=st.session_state.banco_dados["conteudo_original"],
