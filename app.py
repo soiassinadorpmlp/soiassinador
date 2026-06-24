@@ -117,7 +117,6 @@ def criador_processa_lote(arquivo_pdf, texto_assinantes, meu_email, minha_senha_
                 "cpf": "", "status": "Pendente", "data": "-"
             })
             
-            # GERA O LINK INDIVIDUAL COM O TOKEN ÚNICO
             link_personalizado = f"{base_url}?token={token}"
             
             sucesso = enviar_email_individual(meu_email, minha_senha_app, email_limpo, nome_limpo, link_personalizado)
@@ -131,91 +130,4 @@ def criador_processa_lote(arquivo_pdf, texto_assinantes, meu_email, minha_senha_
 1. Hash SHA-256: {st.session_state.banco_dados['hash_seguranca']}
 2. Disparos: {emails_enviados} e-mails enviados com sucesso.
 3. Linhas ignoradas: {linhas_ignoradas}
-4. Total na memória: {total_cadastrados} assinantes cadastrados."""
-    
-    st.session_state.relatorio_envio = relatorio
-    st.success("Lote disparado com sucesso!")
-
-# --- MENU LATERAL DE ACESSO RESTRITO ---
-with st.sidebar:
-    st.subheader("Acesso Restrito")
-    if not st.session_state.modo_administrador:
-        senha_admin = st.text_input("Senha do Criador", type="password")
-        if st.button("Liberar Painel"):
-            if senha_admin == "ChaveMestra123":
-                st.session_state.modo_administrador = True
-                st.query_params.clear() # Limpa tokens ao entrar como admin
-                st.rerun()
-            else:
-                st.error("Senha incorreta.")
-    else:
-        st.success("Modo Criador Ativo")
-        if st.button("Sair do Panel (Modo Assinante)"):
-            st.session_state.modo_administrador = False
-            st.rerun()
-
-# --- ABA DE OPERAÇÃO ---
-if st.session_state.modo_administrador:
-    aba1, aba2, aba3 = st.tabs(["Painel do Criador", "Página do Assinante", "Histórico do Lote"])
-else:
-    aba2, = st.tabs(["Página do Assinante"])
-
-# --- CONTEÚDO: PAINEL DO CRIADOR (ADMIN) ---
-if st.session_state.modo_administrador:
-    with aba1:
-        col1, col2 = st.columns(2)
-        with col1:
-            campo_meu_email = st.text_input("Seu Gmail de Envio", value=GMAIL_PADRAO)
-            campo_minha_senha = st.text_input("Sua Senha de App do Gmail (16 letras)", type="password", placeholder="Digite as 16 letras aqui")
-            campo_link_sistema = st.text_input("Link do seu Sistema", value=LINK_SISTEMA_PADRAO)
-            campo_arquivo = st.file_uploader("Arraste o PDF do Contrato", type=["pdf"])
-            campo_lote = st.text_area("Lista de Assinantes (Nome; E-mail)", placeholder="João Silva; joao@email.com", height=150)
-            
-            if st.button("🚀 Disparar E-mails para o Lote", type="primary"):
-                criador_processa_lote(campo_arquivo, campo_lote, campo_meu_email, campo_minha_senha, campo_link_sistema)
-                st.rerun()
-                
-        with col2:
-            st.subheader("Painel de Controle")
-            if "relatorio_envio" in st.session_state:
-                st.text_area("Relatório de Saída", st.session_state.relatorio_envio, height=250)
-            else:
-                st.info("Aguardando o envio do primeiro lote...")
-
-# --- CONTEÚDO: PÁGINA DO ASSINANTE (PÚBLICA / FILTRADA POR TOKEN) ---
-with aba2:
-    st.title("🖋️ Assinatura Eletrônica de Documentos")
-    
-    # Identificar se há um assinante legítimo pelo token da URL
-    assinante_atual = None
-    if token_acesso and st.session_state.banco_dados["assinantes"]:
-        for a in st.session_state.banco_dados["assinantes"]:
-            if a["token"] == token_acesso:
-                assinante_atual = a
-                break
-
-    st.subheader("1. Minuta do Documento para Leitura")
-    if st.session_state.banco_dados["conteudo_original"] is not None:
-        st.download_button(
-            label="📖 Abrir minuta em nova aba / Baixar para leitura",
-            data=st.session_state.banco_dados["conteudo_original"],
-            file_name="minuta_para_leitura.pdf",
-            mime="application/pdf"
-        )
-        st.info("Utilize o botão acima para analisar integralmente o teor do documento antes de preencher a assinatura abaixo.")
-    else:
-        st.warning("Nenhum documento ativo para assinatura no momento. Aguarde o envio do link oficial pelo organizador.")
-
-    st.subheader("2. Identificação e Validação")
-    col3, col4 = st.columns(2)
-    with col3:
-        # Se veio pelo link exclusivo, o sistema já sugere o nome exato dele!
-        nome_sugerido = assinante_atual["nome"] if assinante_atual else ""
-        campo_nome_cliente = st.text_input("Nome Completo do Assinante", value=nome_sugerido, placeholder="Exatamente como recebido no e-mail")
-        campo_cpf_cliente = st.text_input("Digite seu CPF")
-        
-        if st.button("✍️ Confirmar Assinatura Digital", type="primary"):
-            if not st.session_state.banco_dados["assinantes"]:
-                st.error("ERRO: Nenhum lote de documento ativo.")
-            elif not campo_nome_cliente or not campo_cpf_cliente:
-                st.error("ERRO: Pre
+4. Total na memória: {total_cadast
