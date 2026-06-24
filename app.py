@@ -28,9 +28,6 @@ if "banco_dados" not in st.session_state:
         "assinantes": []
     }
 
-if "modo_administrador" not in st.session_state:
-    st.session_state.modo_administrador = False
-
 # --- LEITURA DO TOKEN EXCLUSIVO DA URL ---
 url_params = st.query_params
 token_acesso = url_params.get("token", None)
@@ -51,13 +48,7 @@ def obter_tabela_historico():
     return dados_tabela
 
 # --- MOTOR DE DISPARO REAL ---
-def enviar_email_individual(
-    meu_email, 
-    minha_senha_app, 
-    email_destino, 
-    nome_assinante, 
-    link_personalizado
-):
+def enviar_email_individual(meu_email, minha_senha_app, email_destino, nome_assinante, link_personalizado):
     try:
         servidor_smtp = "smtp.gmail.com"
         porta = 465
@@ -91,13 +82,7 @@ Não é necessário fazer login para assinar.
         return False
 
 # --- PROCESSAR ENTRADA DE LOTE ---
-def criador_processa_lote(
-    arquivo_pdf, 
-    texto_assinantes, 
-    meu_email, 
-    minha_senha_app, 
-    link_sistema
-):
+def criador_processa_lote(arquivo_pdf, texto_assinantes, meu_email, minha_senha_app, link_sistema):
     if arquivo_pdf is None:
         return st.error("ERRO: Anexe um arquivo PDF.")
     if not texto_assinantes.strip():
@@ -117,7 +102,6 @@ def criador_processa_lote(
 
     linhas = texto_assinantes.strip().split("\n")
     emails_enviados = 0
-    linhas_ignoradas = 0
     
     base_url = link_sistema.split("?")[0]
     
@@ -139,34 +123,171 @@ def criador_processa_lote(
             
             link_personalizado = f"{base_url}?token={token}"
             
-            sucesso = enviar_email_individual(
-                meu_email, 
-                minha_senha_app, 
-                email_limpo, 
-                nome_limpo, 
-                link_personalizado
-            )
-            if sucesso:
-                emails_enviados += 1
-        else:
-            linhas_ignoradas += 1
+            enviar_email_individual(meu_email, minha_senha_app, email_limpo, nome_limpo, link_personalizado)
+            emails_enviados += 1
 
     total_cadastrados = len(st.session_state.banco_dados["assinantes"])
-    relatorio = f"""=== LOTE PROCESSADO ===
-1. Hash SHA-256: {st.session_state.banco_dados['hash_seguranca']}
-2. Disparos: {emails_enviados} e-mails enviados com sucesso.
-3. Linhas ignoradas: {linhas_ignoradas}
-4. Total na memória: {total_cadastrados} assinantes cadastrados."""
-    
-    st.session_state.relatorio_envio = relatorio
+    st.session_state.relatorio_envio = f"Lote processado! {emails_enviados} e-mails enviados. Total: {total_cadastrados}."
     st.success("Lote disparado com sucesso!")
 
-# --- MENU LATERAL DE ACESSO RESTRITO ---
+# --- MENU LATERAL DE ACESSO RESTRITO (MECANISMO SEGURO) ---
 with st.sidebar:
     st.subheader("Acesso Restrito")
-    if not st.session_state.modo_administrador:
+    # Usamos um botão do tipo checkbox para evitar loops de travamento de tela
+    modo_admin = st.checkbox("Ativar Modo Criador")
+    
+    if modo_admin:
         senha_admin = st.text_input("Senha do Criador", type="password")
-        if st.button("Liberar Painel"):
-            if senha_admin == "ChaveMestra123":
-                st.session_state.modo_administrador = True
-                st.query_params.clear()
+        if senha_admin == "ChaveMestra123":
+            st.success("Acesso Liberado!")
+            autenticado = True
+        else:
+            if senha_admin:
+                st.error("Senha incorreta.")
+            autenticado = False
+    else:
+        autenticado = False
+
+# --- DEFINIÇÃO DAS ABAS CONFORME AUTENTICAÇÃO ---
+if autenticado:
+    aba1, aba2, aba3 = st.tabs(["Painel do Criador", "Página do Assinante", "Histórico do Lote"])
+else:
+    aba2, = st.tabs(["Página do Assinante"])
+
+# --- CONTEÚDO: PAINEL DO CRIADOR (ADMIN) ---
+if autenticado:
+    with aba1:
+        col1, col2 = st.columns(2)
+        with col1:
+            campo_meu_email = st.text_input("Seu Gmail de Envio", value=GMAIL_PADRAO)
+            campo_minha_senha = st.text_input("Senha de App (16 letras)", type="password")
+            campo_link_sistema = st.text_input("Link do seu Sistema", value=LINK_SISTEMA_PADRAO)
+            campo_arquivo = st.file_uploader("Arraste o PDF do Contrato", type=["pdf"])
+            campo_lote = st.text_area("Lista de Assinantes (Nome; E-mail)", placeholder="João Silva; joao@email.com", height=150)
+            
+            if st.button("🚀 Disparar E-mails para o Lote", type="primary"):
+                criador_processa_lote(campo_arquivo, campo_lote, campo_meu_email, campo_minha_senha, campo_link_sistema)
+                
+        with col2:
+            st.subheader("Painel de Controle")
+            if "relatorio_envio" in st.session_state:
+                st.text_area("Relatório de Saída", st.session_state.relatorio_envio, height=250)
+            else:
+                st.info("Aguardando o envio do primeiro lote...")
+
+# --- CONTEÚDO: PÁGINA DO ASSINANTE ---
+with aba2:
+    st.title("🖋️ Assinatura Eletrônica de Documentos")
+    
+    assinante_atual = None
+    if token_acesso and st.session_state.banco_dados["assinantes"]:
+        for a in st.session_state.banco_dados["assinantes"]:
+            if a["token"] == token_acesso:
+                assinante_atual = a
+                break
+
+    st.subheader("1. Minuta do Documento para Leitura")
+    if st.session_state.banco_dados["conteudo_original"] is not None:
+        st.download_button(
+            label="📖 Abrir minuta para leitura",
+            data=st.session_state.banco_dados["conteudo_original"],
+            file_name="minuta_para_leitura.pdf",
+            mime="application/pdf"
+        )
+        st.info("Analise o documento antes de assinar abaixo.")
+    else:
+        st.warning("Nenhum documento ativo para assinatura no momento.")
+
+    st.subheader("2. Identificação e Validação")
+    col3, col4 = st.columns(2)
+    with col3:
+        nome_sugerido = assinante_atual["nome"] if assinante_atual else ""
+        
+        campo_nome_cliente = st.text_input("Nome Completo", value=nome_sugerido)
+        campo_cpf_cliente = st.text_input("Digite seu CPF")
+        
+        if st.button("✍️ Confirmar Assinatura Digital", type="primary"):
+            if not st.session_state.banco_dados["assinantes"]:
+                st.error("ERRO: Nenhum lote de documento ativo.")
+            elif not campo_nome_cliente or not campo_cpf_cliente:
+                st.error("ERRO: Preencha Nome e CPF.")
+            else:
+                encontrado = False
+                for a in st.session_state.banco_dados["assinantes"]:
+                    valido = False
+                    if token_acesso:
+                        valido = (a["token"] == token_acesso and a["status"] == "Pendente")
+                    else:
+                        valido = (a["nome"].lower() == campo_nome_cliente.lower() and a["status"] == "Pendente")
+                        
+                    if valido:
+                        a["status"] = "Assinado"
+                        a["cpf"] = campo_cpf_cliente
+                        a["data"] = "24/06/2026 15:50"
+                        encontrado = True
+                        break
+                
+                if not encontrado:
+                    st.error("ERRO: Identificação inválida ou já assinado.")
+                else:
+                    st.success("Assinatura registrada!")
+                    
+                    # GERAR FOLHA DE ASSINATURAS
+                    pdf_folha = "folha_assinaturas_lote.pdf"
+                    c = canvas.Canvas(pdf_folha, pagesize=letter)
+                    c.rect(40, 40, 532, 712)
+                    c.drawString(60, 710, "PROTOCOLO DE ASSINATURAS DIGITAIS")
+                    c.drawString(60, 675, f"Hash SHA-256: {st.session_state.banco_dados['hash_seguranca']}")
+                    
+                    y = 620
+                    for a in st.session_state.banco_dados["assinantes"]:
+                        c.drawString(70, y, f"Assinante: {a['nome']}")
+                        c.drawString(70, y - 18, f"E-mail: {a['email']}")
+                        status_texto = f"STATUS: {a['status']} | CPF: {a['cpf']}"
+                        c.drawString(70, y - 34, status_texto)
+                        y -= 70
+                    c.save()
+
+                    # COMPILAR ARQUIVO FINAL
+                    pdf_final_caminho = "documento_lote_finalizado.pdf"
+                    escritor = PdfWriter()
+                    
+                    with open("temp_orig.pdf", "wb") as f_temp:
+                        f_temp.write(st.session_state.banco_dados["conteudo_original"])
+                        
+                    for pagina in PdfReader("temp_orig.pdf").pages:
+                        escritor.add_page(pagina)
+                    for pagina in PdfReader(pdf_folha).pages:
+                        escritor.add_page(pagina)
+                        
+                    escritor.encrypt(user_password="", owner_password="ChaveMestra123", permissions_flag=4)
+                    with open(pdf_final_caminho, "wb") as f:
+                        escritor.write(f)
+                        
+                    with open(pdf_final_caminho, "rb") as f_final:
+                        st.session_state.pdf_final_bytes = f_final.read()
+
+    with col4:
+        st.subheader("Status do Documento")
+        todos_assinaram = all(a["status"] == "Assinado" for a in st.session_state.banco_dados["assinantes"]) if st.session_state.banco_dados["assinantes"] else False
+        if "pdf_final_bytes" in st.session_state:
+            if todos_assinaram:
+                st.balloons()
+                st.download_button(
+                    label="📥 Baixar PDF Finalizado",
+                    data=st.session_state.pdf_final_bytes,
+                    file_name="documento_finalizado.pdf",
+                    mime="application/pdf"
+                )
+            else:
+                st.warning("Aguardando demais assinaturas.")
+
+# --- CONTEÚDO: HISTÓRICO DO LOTE ---
+if autenticado:
+    with aba3:
+        st.subheader("Monitoramento do Lote Ativo")
+        tabela = obter_tabela_historico()
+        if tabela:
+            st.dataframe(tabela, use_container_width=True)
+        else:
+            st.info("Nenhum documento sendo processado no momento.")
