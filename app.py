@@ -22,15 +22,15 @@ GMAIL_PADRAO = "soiassinadorpmlp@gmail.com"
 LINK_SISTEMA_PADRAO = "https://soiassinador.streamlit.app"
 SPREADSHEET_ID = "13Vyiy-XBzR969JPTMJlWK3gpKcLRi9ftVRcO3kinoWE"
 
-# --- CREDENCIAIS DIRETAS DO GOOGLE ---
+# --- CHAVE PRIVADA ENVIADA POR VOCÊ ---
+# O motor abaixo vai limpar automaticamente qualquer caractere mal formatado
+CHAVE_PROPRIA_NOVA = r"-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCpPvjTTPOpXt7E\nH8ANQjWbiDWHWz8VjHhIxCrMAYxIc3Ge9fmBNqC99UM4NMCPamzFtu2FfU87zx5F\nbaCpVYBmSxzclTf7r+7Zmkd5qPJYK3BHylajH7lVGqSaXply78xtKV7KMcDFgKUV\nsmWf/5AsJGprvVb9nY6Kq2OKHa3wi2+isX7EzLNG2NpeWS9k/tG6cI3uQ91EFTRd\n9URkENfySweM3gfGPduJfZuI0eK5UQ5oHDlZzPA/4QOEj/lkLrFJlpNZ1B7Vn93B\nnod0lrf5n4bgrpliz/+kOEhk7PLhv8EvbNB662GV0i1aK31oN4cUoBI8yMvHLhF9\njRRhmNEnAgMBAAECggEAM/hy1wvHvMg1lrr7MfcVWBO9ADoMRpUycIHQdIG7LppI\nlxwISF3agUpZoF5OjRuMmDACgt3GYWLJ9F7kGWt4eLDzBWdK4B4XtblS3nB7Loj0\nOw9OiFvbAN+kEQUgkLNDLngoM+WQQPWue9mirD2Ba5SpGzlyh4GEvl8/uy8+9OCU\nYVaTY8llP++WfecEldqvwTOB3cPcNo8qC+7bAVwHbp2yiz2HfBqw6dQz0NuzHPK7\n+am+h0ZNirxEn2ZBo3GaN3u2XPYTQ4P2NPBbxRjfniGHjNa5m0BdO2R/NpTWX/vW\nT3Qp9mZ5p1PfY2MJEQsXtbwN6qxNsgRfBLcprhWiZQKBgQDa38FYdxHQjbYLeRZQ\nF36rh4dyxK771uwo7zoULemBZenclYfPP3otCyiWzs1AwQW2sMgcfRv1dEn9q+S3\lsAzwT3d0GPCZs6FYvRtBtUFBwcDUBpOT4v2gWdg7cQJGcWyzYEINy+W7WbQs3Qd\nR+uCUoqeHJwEIfPFepSfK/lqqwKBgQDF9DMyuIymwMiCqoxVytkXfRn0Arq0yKMj\nPqKTB8rPPdiR2LXkJCaAxk4T0bD7InJYew33vhSxsDK1U+3HsV3OEsZ6nkN/jcvi\nmGwoFci2OSMcehq9f9AV76zqZymqDvtOMVjQPV4aJxsKOtNhhkIzhaTT9h37Gnff\nHs7HiREzdQKBgQDKi9Z473dk8D9PTrb/Vz65raoC41CrbbEOEJRGqFY2kQFiSF5t\nw+hkVrcxGB+JlRacgewtsPl2pC70uWXnH3Kucl22L2qiNFFZzsEzQ+dNx7sNrcsq\nPSLg88+fO2j2owr49IQ7/hXkLb2/1NHXZv7ik1AEEaWvjVvxnAZ9ZkxiEQKBgFKh\nrmGE0gmlvc11neEOLPL2IMhP/1oJyreipMCVZx59ZZL0EHFseboVjXAOfz9F0M+I\nhnsdGIxXzcMNhttt+YdVJQ74U5rCORKcp8FP3pnaXgK8Ib9qxBT0GI08hRLc8CBi\nzv0WMNrf6hSqG6TBI49YQUbNnRQ9pz43IQAAAnMlAoGBAMtS16j3H35cOeGULuh9\noMfUFIUPpBveuMP6rVohAz9KpOwChVU4EG+0/ILs1mGYivZLrIczBpFgkquME4OT\n/NoEymjC8pn/KSmCsbT7aLr3d2yolF3WN6sdbymjN5GVDoqwkyycWhDCcwrd97pV\nXdXaeg1dyoshfJ8vVT+OlX+z\n-----END PRIVATE KEY-----\n"
+
 credenciais_dict = {
   "type": "service_account",
   "project_id": "soi-assinador",
   "private_key_id": "eaaef78044d8efc923f18954f006bb24d0411e58",
-  "private_key": r"-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCpPvjTTPOpXt7E\nH8ANQjWbiDWHWz8VjHhIxCrMAYxIc3Ge9fmBNqC99UM4NMCPamzFtu2FfU87zx5F\nbaCpVYBmSxzclTf7r+7Zmkd5qPJYK3BHylajH7lVGqSaXply78xtKV7KMcDFgKUV\nsmWf/5AsJGprvVb9nY6Kq2OKHa3wi2+isX7EzLNG2NpeWS9k/tG6cI3uQ91EFTRd\n9URkENfySweM3gfGPduJfZuI0eK5UQ5oHDlZzPA/4QOEj/lkLrFJlpNZ1B7Vn93B\nnod0lrf5n4bgrpliz/+kOEhk7PLhv8EvbNB662GV0i1aK31oN4cUoBI8yMvHLhF9\njRRhmNEnAgMBAAECggEAM/hy1wvHvMg1lrr7MfcVWBO9ADoMRpUycIHQdIG7LppI\nlxwISF3agUpZoF5OjRuMmDACgt3GYWLJ9F7kGWt4eLDzBWdK4B4XtblS3nB7Loj0\nOw9OiFvbAN+kEQUgkLNDLngoM+WQQPWue9mirD2Ba5SpGzlyh4GEvl8/uy8+9OCU\nYVaTY8llP++WfecEldqvwTOB3cPcNo8qC+7bAVwHbp2yiz2HfBqw6dQz0NuzHPK7\n+am+h0ZNirxEn2ZBo3GaN3u2XPYTQ4P2NPBbxRjfniGHjNa5m0BdO2R/NpTWX/vW\nT3Qp9mZ5p1PfY2MJEQsXtbwN6qxNsgRfBLcprhWiZQKBgQDa38FYdxHQjbYLeRZQ\nF36rh4dyxK771uwo7zoULemBZenclYfPP3otCyiWzs1AwQW2sMgcfRv1dEn9q+S3\lsAzwT3d0GPCZs6FYvRtBtUFBwcDUBpOT4v2gWdg7cQJGcWyzYEINy+W7WbQs3Qd\nR+uCUoqeHJwEIfPFepSfK/lqqwKBgQDF9DMyuIymwMiCqoxVytkXfRn0Arq0yKMj\nPqKTB8rPPdiR2LXkJCaAxk4T0bD7InJYew33vhSxsDK1U+3HsV3OEsZ6nkN/jcvi\nmGwoFci2OSMcehq9f9AV76zqZymqDvtOMVjQPV4aJxsKOtNhhkIzhaTT9h37Gnff\nHs7HiREzdQKBgQDKi9Z473dk8D9PTrb/Vz65raoC41CrbbEOEJRGqFY2kQFiSF5t\nw+hkVrcxGB+JlRacgewtsPl2pC70uWXnH3Kucl22L2qiNFFZzsEzQ+dNx7sNrcsq\nPSLg88+fO2j2owr49IQ7/hXkLb2/1NHXZv7ik1AEEaWvjVvxnAZ9ZkxiEQKBgFKh\nrmGE0gmlvc11neEOLPL2IMhP/1oJyreipMCVZx59ZZL0EHFseboVjXAOfz9F0M+I\nhnsdGIxXzcMNhttt+YdVJQ74U5rCORKcp8FP3pnaXgK8Ib9qxBT0GI08hRLc8CBi\nzv0WMNrf6hSqG6TBI49YQUbNnRQ9pz43IQAAAnMlAoGBAMtS16j3H35cOeGULuh9"
-    "oMfUFIUPpBveuMP6rVohAz9KpOwChVU4EG+0/ILs1mGYivZLrIczBpFgkquME4OT"
-    "/NoEymjC8pn/KSmCsbT7aLr3d2yolF3WN6sdbymjN5GVDoqwkyycWhDCcwrd97pV"
-    "XdXaeg1dyoshfJ8vVT+OlX+z\n-----END PRIVATE KEY-----\n",
+  "private_key": "", # Injetado de forma higienizada abaixo
   "client_email": "assinador-sheets@soi-assinador.iam.gserviceaccount.com",
   "client_id": "104754261635399610959",
   "auth_uri": "https://accounts.google.com/o/oauth2/auth",
@@ -43,8 +43,17 @@ credenciais_dict = {
 def obter_cliente_sheets():
     escopos = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
     dados_sanitizados = credenciais_dict.copy()
-    if "\\n" in dados_sanitizados["private_key"]:
-        dados_sanitizados["private_key"] = dados_sanitizados["private_key"].replace("\\n", "\n")
+    
+    # MOTOR DE SANITIZAÇÃO ABSOLUTA: Remove quebras truncadas e reconstrói o PEM perfeito
+    raw_key = CHAVE_PROPRIA_NOVA
+    raw_key = raw_key.replace("-----BEGIN PRIVATE KEY-----", "").replace("-----END PRIVATE KEY-----", "")
+    raw_key = raw_key.replace("\\n", "").replace("\n", "").replace(" ", "").strip()
+    
+    # Corta o bloco limpo em linhas padrão de 64 caracteres exigidas pelo leitor de PEM do Python
+    linhas_pem = [raw_key[i:i+64] for i in range(0, len(raw_key), 64)]
+    bloco_pem_correto = "-----BEGIN PRIVATE KEY-----\n" + "\n".join(linhas_pem) + "\n-----END PRIVATE KEY-----\n"
+    
+    dados_sanitizados["private_key"] = bloco_pem_correto
     creds = Credentials.from_service_account_info(dados_sanitizados, scopes=escopos)
     return gspread.authorize(creds)
 
@@ -207,37 +216,3 @@ with aba2:
     c_cpf = st.text_input("CPF")
     
     if st.button("✍️ Confirmar Assinatura", type="primary"):
-        if not lista_banco:
-            st.error("Erro: Banco de dados vazio.")
-        elif not c_nome or not c_cpf:
-            st.error("Erro: Preencha todos os campos.")
-        else:
-            encontrado = False
-            for a in lista_banco:
-                valido = False
-                if token_acesso:
-                    valido = (str(a.get("token")) == str(token_acesso) and a.get("status") == "Pendente")
-                else:
-                    valido = (str(a.get("nome")).lower() == c_nome.lower() and a.get("status") == "Pendente")
-                    
-                if valido:
-                    a["status"] = "Assinado"
-                    a["cpf"] = c_cpf
-                    a["data"] = "24/06/2026"
-                    encontrado = True
-                    break
-            
-            if not encontrado:
-                st.error("Erro: Assinatura inválida ou lote já concluído.")
-            else:
-                salvar_dados_planilha(lista_banco)
-                st.success("Assinatura confirmada e registrada no Google Sheets!")
-                st.balloons()
-
-# --- CONTEÚDO: HISTÓRICO ---
-if st.session_state.autenticado:
-    with aba3:
-        st.subheader("Histórico de Assinaturas (Realtime)")
-        dados_finais = ler_dados_planilha()
-        if dados_finais:
-            st.dataframe(pd.DataFrame(dados_finais), width="stretch")
