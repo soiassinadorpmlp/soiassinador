@@ -75,4 +75,6 @@ Link de acesso seguro:
         return False
 
 # --- PROCESSAR ENTRADA DE LOTE ---
-def criador_processa_lote(arquivo_pdf, texto
+def criador_processa_lote(arquivo_pdf, texto_assinantes, meu_email, minha_senha_app, link_sistema):
+    if arquivo_pdf is None:
+        return st.error("ERRO: Anexe
