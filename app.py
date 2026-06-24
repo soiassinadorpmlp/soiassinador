@@ -22,39 +22,44 @@ GMAIL_PADRAO = "soiassinadorpmlp@gmail.com"
 LINK_SISTEMA_PADRAO = "https://soiassinador.streamlit.app"
 SPREADSHEET_ID = "13Vyiy-XBzR969JPTMJlWK3gpKcLRi9ftVRcO3kinoWE"
 
-# --- CREDENCIAIS DIRETAS DO GOOGLE (FORMATO MULTILINHA NATIVO) ---
+# --- RECONSTRUÇÃO LIMPA DA CHAVE PRIVADA (À PROVA DE FALHAS DE ESPAÇO) ---
+corpo_chave_puro = (
+    "MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDB3GkUge7oI5Qp"
+    "dtggpWhjkDpngZuhlRitG1TSF3yAovrXwyoG0COT17wkSqqc/a9Jygt1Lht+iEV7"
+    "/W7YdHrUr6KpRYTMjP6zmPNrsFg3o5DqhXcDrz02H9aoz0ijxkqEpSRoDo7x7mrc"
+    "yauFRErakdTIld0acmErGLexn8jmEElpALDTkfbX2Cvcv37V7OMhcwNRTg7Xrsbu"
+    "Iw+asprtY0dGCqyLusPqg4kcujDRSK3lwJpDAt1Pvj7/vjUQp5ml+2RX40FIABIN"
+    "V+8coXDciTZL8CqkkXCrRIhDGtvF5qIV9wz5+v8bTmY4XAigx3cdLcblHDVHCpJv"
+    "mnZ9Lsj/AgMBAAECggEAYFKWt4TT4u4CqROO0bG+C3JXQqSoYoHFcAWbgIQA7Z2N"
+    "S3WCRT5X3xabOeELotN9rAlC5idRq+4jsDa9Q7mkalcWWErdcBFCYJRHpqNJQeP4"
+    "lj5YYzFIFcN+EgRkUFOvJPc0/qr1JYpT+H4PxjinhLBe7IdiA8j/NL2kUBJXbM+f"
+    "bEZ1zUq+mF7KV3Aeg1idb6Sf3ng9SLGCncgo28OxuGyOb3QnHEu8/ssCQVVl/i4y"
+    "DruaUkIZCLWAZ6YA6gUYDKvQQ3eL7Rx7j9TrxnaVxD4UcDYimN0Aq5WijeYMtBy+"
+    "rTP+RRN3j9sPW1hzDsYw7txpPgrtDpe/tmODODNGOQKBgQDjemKHtp0tG6+p9R1n"
+    "my+0IbmaKtOPw9fj27qRQnjOVtJZ22TC0fpmtkxrhwbDzy1Z7o7c/jj1JOzvMqE"
+    "jQ/CwnHe/mjMoO8lM/5csNCpKj2A9p0zuVE8WRGMVoJRvuQUMq0g9oDv9rnkk70U"
+    "uzgXs+EonXZF7K5pF6kqXubvYwKBgQDaKvsRwgwZS1kQPyVTglmd+PBsOzmBe9PX"
+    "k2mMwXU6zNdMZsB/LDP3xLKBGmalYz6F2z2mPC1GuqaZKk90LZYT7cQtbBinOsCi"
+    "6k/Fgt77/GKswQBE3BS1mBBECwgTdMl448NXh4gUUjpe3BoyeVWLYZ2fzzCtW6CU"
+    "Tvp9oCTYtQKBgQDN3+imrPZpacI9DnLzXrb4zwD8b0ATwAp21Vlvt/o/vMIZwv7Z"
+    "d1KpfNmDA6xysOF5n/c6OPbxnt60yVystJAMExEd4aCVeh2VzQ2rc/cU8v7A5fF2"
+    "a4UDGhVQrsa5Fwuy3/5ic9ZT1zd8kN0ykxJ8GTdxG7l8JW3f/SMEDunwwwKBgQCY"
+    "dibkvw3Dc3N3Nhm4urindexm4URJcFlb2XuTcFyXr224rs1k3ResTbZCaTqb8Lqq"
+    "HDAVbiiYVKFdlXoyjme0a+wAjYbuwF8zOvJzk0xhzYsXxSBdSoAOqAWvGXnjebQM"
+    "SQVIy3msYMb3WUCQqvIdroUkNsTAVeRYdOtYisrKOfM1bX+ybQKBgGBmnRA9rSmk"
+    "CUvIFdOSna5TLa3gv2FW3WdEAihH4DsAtpFZHrmDzkaTJfU4hJcVBciJ7d79Ch6v"
+    "NNp6P0U87XfnbPDFOK7w4+zvSvNJ3x0Uqwh8YEv+wIR0dai8Y133fL5r+VZ++Nkc"
+    "85lwZf/Ji+YmrHSF3MwAVrNhu5z2S6YFZ"
+)
+
+# Monta o PEM final inserindo as quebras obrigatorias
+chave_privada_final = f"-----BEGIN PRIVATE KEY-----\n{corpo_chave_puro}\n-----END PRIVATE KEY-----\n"
+
 credenciais_dict = {
   "type": "service_account",
   "project_id": "soi-assinador",
   "private_key_id": "eaaef78044d8efc923f18954f006bb24d0411e58",
-  "private_key": """-----BEGIN PRIVATE KEY-----
-MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDB3GkUge7oI5Qp
-dtggpWhjkDpngZuhlRitG1TSF3yAovrXwyoG0COT17wkSqqc/a9Jygt1Lht+iEV7
-/W7YdHrUr6KpRYTMjP6zmPNrsFg3o5DqhXcDrz02H9aoz0ijxkqEpSRoDo7x7mrc
-yauFRErakdTIld0acmErGLexn8jmEElpALDTkfbX2Cvcv37V7OMhcwNRTg7Xrsbu
-Iw+asprtY0dGCqyLusPqg4kcujDRSK3lwJpDAt1Pvj7/vjUQp5ml+2RX40FIABIN
-V+8coXDciTZL8CqkkXCrRIhDGtvF5qIV9wz5+v8bTmY4XAigx3cdLcblHDVHCpJv
-mnZ9Lsj/AgMBAAECggEAYFKWt4TT4u4CqROO0bG+C3JXQqSoYoHFcAWbgIQA7Z2N
-S3WCRT5X3xabOeELotN9rAlC5idRq+4jsDa9Q7mkalcWWErdcBFCYJRHpqNJQeP4
-lj5YYzFIFcN+EgRkUFOvJPc0/qr1JYpT+H4PxjinhLBe7IdiA8j/NL2kUBJXbM+f
-bEZ1zUq+mF7KV3Aeg1idb6Sf3ng9SLGCncgo28OxuGyOb3QnHEu8/ssCQVVl/i4y
-DruaUkIZCLWAZ6YA6gUYDKvQQ3eL7Rx7j9TrxnaVxD4UcDYimN0Aq5WijeYMtBy+
-rTP+RRN3j9sPW1hzDsYw7txpPgrtDpe/tmODODNGOQKBgQDjemKHtp0tG6+p9R1n
-my+0IbmaKtOPw9fj27qRQnjOVtJZ22TC0fpmtkxrhwbDzy1Z7o7c/jj1JOzvMqE
-jQ/CwnHe/mjMoO8lM/5csNCpKj2A9p0zuVE8WRGMVoJRvuQUMq0g9oDv9rnkk70U
-uzgXs+EonXZF7K5pF6kqXubvYwKBgQDaKvsRwgwZS1kQPyVTglmd+PBsOzmBe9PX
-k2mMwXU6zNdMZsB/LDP3xLKBGmalYz6F2z2mPC1GuqaZKk90LZYT7cQtbBinOsCi
-6k/Fgt77/GKswQBE3BS1mBBECwgTdMl448NXh4gUUjpe3BoyeVWLYZ2fzzCtW6CU
-Tvp9oCTYtQKBgQDN3+imrPZpacI9DnLzXrb4zwD8b0ATwAp21Vlvt/o/vMIZwv7Z
-d1KpfNmDA6xysOF5n/c6OPbxnt60yVystJAMExEd4aCVeh2VzQ2rc/cU8v7A5fF2
-a4UDGhVQrsa5Fwuy3/5ic9ZT1zd8kN0ykxJ8GTdxG7l8JW3f/SMEDunwwwKBgQCY
-dibkvw3Dc3N3Nhm4urindexm4URJcFlb2XuTcFyXr224rs1k3ResTbZCaTqb8LqqHDAVbiiY
-VKFdlXoyjme0a+wAjYbuwF8zOvJzk0xhzYsXxSBdSoAOqAWvGXnjebQMSQVIy3ms
-YMb3WUCQqvIdroUkNsTAVeRYdOtYisrKOfM1bX+ybQKBgGBmnRA9rSmkCUvIFdOS
-na5TLa3gv2FW3WdEAihH4DsAtpFZHrmDzkaTJfU4hJcVBciJ7d79Ch6vNNp6P0U8
-7XfnbPDFOK7w4+zvSvNJ3x0Uqwh8YEv+wIR0dai8Y133fL5r+VZ++Nkc85lwZf/J
-i+YmrHSF3MwAVrNhu5z2S6YFZ
------END PRIVATE KEY-----""",
+  "private_key": chave_privada_final,
   "client_email": "assinador-sheets@soi-assinador.iam.gserviceaccount.com",
   "client_id": "104754261635399610959",
   "auth_uri": "https://accounts.google.com/o/oauth2/auth",
@@ -66,7 +71,6 @@ i+YmrHSF3MwAVrNhu5z2S6YFZ
 # --- CONEXÃO DIRETA COM GOOGLE SHEETS ---
 def obter_cliente_sheets():
     escopos = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-    # Como a chave já está perfeitamente estruturada em múltiplas linhas, passamos o dicionário direto
     creds = Credentials.from_service_account_info(credenciais_dict, scopes=escopos)
     return gspread.authorize(creds)
 
