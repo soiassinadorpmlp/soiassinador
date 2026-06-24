@@ -1,4 +1,5 @@
 streamlit
-st-theme
-st-gsheets-connection
 pypdf
+gspread
+gspread-dataframe
+pandas
