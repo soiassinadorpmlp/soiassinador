@@ -20,6 +20,9 @@ if "banco_dados" not in st.session_state:
         "assinantes": []
     }
 
+if "modo_administrador" not in st.session_state:
+    st.session_state.modo_administrador = False
+
 def obter_tabela_historico():
     if not st.session_state.banco_dados["assinantes"]:
         return []
@@ -51,7 +54,8 @@ Você foi incluído como assinante de um documento oficial em nossa plataforma.
 ⚠️ INSTRUÇÕES IMPORTANTES PARA A ASSINATURA:
 1. Confira a grafia do seu nome para a assinatura: {nome_assinante}
 2. Acesse a plataforma pelo link seguro abaixo.
-3. Na aba 'Página do Assinante', você deverá digitar obrigatoriamente o seu NOME COMPLETO (exatamente com a grafia acima) e o seu CPF para validar o documento.
+3. Leia atentamente a minuta do documento disponível na tela.
+4. Digite obrigatoriamente o seu NOME COMPLETO (exatamente com a grafia acima) e o seu CPF para validar o documento.
 
 Link de acesso seguro:
 {link_assinatura}
@@ -101,7 +105,7 @@ def criador_processa_lote(arquivo_pdf, texto_assinantes, meu_email, minha_senha_
                 "cpf": "", "status": "Pendente", "data": "-"
             })
             
-            sucesso = Pattern = enviar_email_individual(meu_email, minha_senha_app, email, nome, link_sistema)
+            sucesso = enviar_email_individual(meu_email, minha_senha_app, email, nome, link_sistema)
             if sucesso:
                 emails_enviados += 1
         else:
@@ -117,41 +121,80 @@ def criador_processa_lote(arquivo_pdf, texto_assinantes, meu_email, minha_senha_
     st.session_state.relatorio_envio = relatorio
     st.success("Lote disparado com sucesso!")
 
-# --- INTERFACE VISUAL ---
-st.title("🖋️ Plataforma de Assinatura Digital (Até 40 Assinantes)")
-
-aba1, aba2, aba3 = st.tabs(["Painel do Criador", "Página do Assinante", "Histórico do Lote"])
-
-with aba1:
-    col1, col2 = st.columns(2)
-    with col1:
-        campo_meu_email = st.text_input("Seu Gmail de Envio", placeholder="seu_email@gmail.com")
-        campo_minha_senha = st.text_input("Sua Senha de App do Gmail (16 letras)", type="password")
-        campo_link_sistema = st.text_input("Link do seu Sistema (Copie da barra de endereços)", placeholder="https://seu-app.streamlit.app")
-        campo_arquivo = st.file_uploader("Arraste o PDF do Contrato", type=["pdf"])
-        campo_lote = st.text_area(
-            "Lista de Assinantes (Formato: Nome; E-mail)", 
-            placeholder="João Silva; joao@email.com\nCarlos Roberto; carlos@email.com",
-            height=150
-        )
-        if st.button("🚀 Disparar E-mails para o Lote", type="primary"):
-            criador_processa_lote(campo_arquivo, campo_lote, campo_meu_email, campo_minha_senha, campo_link_sistema)
+# --- MENU LATERAL DE ACESSO RESTRITO ---
+with st.sidebar:
+    st.subheader("Acesso Restrito")
+    if not st.session_state.modo_administrador:
+        senha_admin = st.text_input("Senha do Criador", type="password")
+        if st.button("Liberar Painel"):
+            if senha_admin == "ChaveMestra123":
+                st.session_state.modo_administrador = True
+                st.rerun()
+            else:
+                st.error("Senha incorreta.")
+    else:
+        st.success("Modo Criador Ativo")
+        if st.button("Sair do Painel (Modo Assinante)"):
+            st.session_state.modo_administrador = False
             st.rerun()
-            
-    with col2:
-        st.subheader("Painel de Controle")
-        if "relatorio_envio" in st.session_state:
-            st.text_area("Relatório de Saída", st.session_state.relatorio_envio, height=250)
-        else:
-            st.info("Aguardando o envio do primeiro lote...")
 
+# --- DEFINIÇÃO DAS ABAS DISPONÍVEIS CONFORME PERMISSÃO ---
+if st.session_state.modo_administrador:
+    aba1, aba2, aba3 = st.tabs(["Painel do Criador", "Página do Assinante", "Histórico do Lote"])
+else:
+    # Para o cliente final, apenas a Página do Assinante existirá na interface
+    aba2, = st.tabs(["Página do Assinante"])
+
+# --- CONTEÚDO: PAINEL DO CRIADOR (APENAS SE ADMIN) ---
+if st.session_state.modo_administrador:
+    with aba1:
+        col1, col2 = st.columns(2)
+        with col1:
+            campo_meu_email = st.text_input("Seu Gmail de Envio", placeholder="seu_email@gmail.com")
+            campo_minha_senha = st.text_input("Sua Senha de App do Gmail (16 letras)", type="password")
+            campo_link_sistema = st.text_input("Link do seu Sistema", placeholder="https://seu-app.streamlit.app")
+            campo_arquivo = st.file_uploader("Arraste o PDF do Contrato", type=["pdf"])
+            campo_lote = st.text_area(
+                "Lista de Assinantes (Nome; E-mail)", 
+                placeholder="João Silva; joao@email.com",
+                height=150
+            )
+            if st.button("🚀 Disparar E-mails para o Lote", type="primary"):
+                criador_processa_lote(campo_arquivo, campo_lote, campo_meu_email, campo_minha_senha, campo_link_sistema)
+                st.rerun()
+                
+        with col2:
+            st.subheader("Painel de Controle")
+            if "relatorio_envio" in st.session_state:
+                st.text_area("Relatório de Saída", st.session_state.relatorio_envio, height=250)
+            else:
+                st.info("Aguardando o envio do primeiro lote...")
+
+# --- CONTEÚDO: PÁGINA DO ASSINANTE (PÚBLICA) ---
 with aba2:
+    st.title("🖋️ Assinatura Eletrônica de Documentos")
+    
+    # Exibição da Minuta do Contrato
+    st.subheader("1. Minuta do Documento para Leitura")
+    if st.session_state.banco_dados["conteudo_original"] is not None:
+        # Mostra o PDF dentro de um frame elegante na tela
+        st.download_button(
+            label="📖 Abrir minuta em nova aba / Baixar para leitura",
+            data=st.session_state.banco_dados["conteudo_original"],
+            file_name="minuta_para_leitura.pdf",
+            mime="application/pdf"
+        )
+        st.info("Utilize o botão acima para analisar integralmente o teor do documento antes de preencher a assinatura abaixo.")
+    else:
+        st.warning("Nenhum documento ativo para assinatura no momento. Aguarde o envio do link oficial pelo organizador.")
+
+    st.subheader("2. Identificação e Validação")
     col3, col4 = st.columns(2)
     with col3:
-        campo_nome_cliente = st.text_input("Nome Completo do Assinante (Idêntico ao recebido por e-mail)")
-        campo_cpf_cliente = st.text_input("Digite seu CPF para assinar")
+        campo_nome_cliente = st.text_input("Nome Completo do Assinante (Exatamente como recebido no e-mail)")
+        campo_cpf_cliente = st.text_input("Digite seu CPF")
         
-        if st.button("✍️ Confirmar Assinatura Digital"):
+        if st.button("✍️ Confirmar Assinatura Digital", type="primary"):
             if not st.session_state.banco_dados["assinantes"]:
                 st.error("ERRO: Nenhum lote de documento ativo.")
             elif not campo_nome_cliente or not campo_cpf_cliente:
@@ -169,7 +212,7 @@ with aba2:
                 if not encontrado:
                     st.error("ERRO: Nome inválido, não cadastrado ou já assinado. Verifique a grafia exata enviada no seu e-mail.")
                 else:
-                    st.success(f"Obrigado, {campo_nome_cliente}! Assinatura registrada.")
+                    st.success(f"Obrigado, {campo_nome_cliente}! Assinatura registrada com sucesso.")
                     
                     # GERAR FOLHA DE ASSINATURAS
                     pdf_folha = "folha_assinaturas_lote.pdf"
@@ -234,27 +277,28 @@ with aba2:
                     st.rerun()
 
     with col4:
-        st.subheader("Acompanhamento")
+        st.subheader("Status do Documento")
         todos_assinaram = all(a["status"] == "Assinado" for a in st.session_state.banco_dados["assinantes"]) if st.session_state.banco_dados["assinantes"] else False
         
         if "pdf_final_bytes" in st.session_state:
             if todos_assinaram:
                 st.balloons()
                 st.success("Perfeito! Todos assinaram o documento.")
+                st.download_button(
+                    label="📥 Baixar PDF Finalizado com Protocolos",
+                    data=st.session_state.pdf_final_bytes,
+                    file_name="documento_finalizado.pdf",
+                    mime="application/pdf"
+                )
             else:
-                st.warning("Assinatura salva. Aguardando os demais participantes.")
-                
-            st.download_button(
-                label="📥 Baixar PDF Final com Protocolo",
-                data=st.session_state.pdf_final_bytes,
-                file_name="contrato_finalizado.pdf",
-                mime="application/pdf"
-            )
+                st.warning("Sua assinatura foi registrada. O documento final completo estará disponível para download assim que todos os integrantes realizarem o mesmo procedimento.")
 
-with aba3:
-    st.subheader("Monitoramento do Lote Ativo")
-    tabela = obter_tabela_historico()
-    if tabela:
-        st.dataframe(tabela, use_container_width=True)
-    else:
-        st.info("Nenhum documento sendo processado no momento.")
+# --- CONTEÚDO: HISTÓRICO DO LOTE (APENAS SE ADMIN) ---
+if st.session_state.modo_administrador:
+    with aba3:
+        st.subheader("Monitoramento do Lote Ativo")
+        tabela = obter_tabela_historico()
+        if tabela:
+            st.dataframe(tabela, use_container_width=True)
+        else:
+            st.info("Nenhum documento sendo processado no momento.")
