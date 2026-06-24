@@ -78,6 +78,11 @@ def obter_cliente_sheets():
     raw_key = raw_key.replace("-----BEGIN PRIVATE KEY-----", "").replace("-----END PRIVATE KEY-----", "")
     raw_key = raw_key.replace("\\n", "").replace("\n", "").replace(" ", "").strip()
     
+    # CORREÇÃO DO PADDING: Garante que o tamanho da string seja múltiplo de 4 adicionando '=' se necessário
+    sobra = len(raw_key) % 4
+    if sobra > 0:
+        raw_key += "=" * (4 - sobra)
+        
     linhas_pem = [raw_key[i:i+64] for i in range(0, len(raw_key), 64)]
     bloco_pem_correto = "-----BEGIN PRIVATE KEY-----\n" + "\n".join(linhas_pem) + "\n-----END PRIVATE KEY-----\n"
     
