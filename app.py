@@ -4,11 +4,13 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import streamlit as st
+from streamlit_gsheets import GSheetsConnection
+import pandas as pd
 from pypdf import PdfReader, PdfWriter
 
 # --- CONFIGURAÇÃO DA INTERFACE ---
 st.set_page_config(
-    page_title="Plataforma",
+    page_title="Plataforma de Assinaturas",
     page_icon="🖋️",
     layout="wide"
 )
@@ -17,31 +19,34 @@ st.set_page_config(
 GMAIL_PADRAO = "soiassinadorpmlp@gmail.com"
 LINK_SISTEMA_PADRAO = "https://soiassinador.streamlit.app"
 
-# --- MEMÓRIA DO SISTEMA ---
-if "banco_dados" not in st.session_state:
-    st.session_state.banco_dados = {
-        "caminho_original": None,
-        "conteudo_original": None,
-        "hash_seguranca": None,
-        "assinantes": []
-    }
+# --- CONEXÃO COM O GOOGLE SHEETS ---
+try:
+    conn = st.connection("gsheets", type=GSheetsConnection)
+except Exception as e:
+    st.error("Erro ao conectar com o Google Sheets. Verifique os Secrets.")
+
+def ler_dados_planilha():
+    try:
+        df = conn.read(ttl="0d")
+        return df.to_dict(orient="records")
+    except:
+        return []
+
+def salvar_dados_planilha(lista_assinantes):
+    try:
+        df = pd.DataFrame(lista_assinantes)
+        conn.update(data=df)
+    except Exception as e:
+        st.error(f"Erro ao salvar na planilha: {e}")
+
+# --- MEMÓRIA DO ARQUIVO ORIGINAL (SESSÃO CURTA) ---
+if "pdf_original_conteudo" not in st.session_state:
+    st.session_state.pdf_original_conteudo = None
+if "hash_seguranca" not in st.session_state:
+    st.session_state.hash_seguranca = None
 
 # --- LEITURA DO TOKEN DA URL ---
 token_acesso = st.query_params.get("token", None)
-
-def obter_tabela_historico():
-    if not st.session_state.banco_dados["assinantes"]:
-        return []
-    dados = []
-    for a in st.session_state.banco_dados["assinantes"]:
-        dados.append({
-            "Nome": a["nome"],
-            "E-mail": a["email"],
-            "Status": a["status"],
-            "CPF": a["cpf"],
-            "Data": a["data"]
-        })
-    return dados
 
 # --- MOTOR DE DISPARO DE E-MAIL ---
 def enviar_email_individual(meu_email, minha_senha, destino, nome, link):
@@ -74,37 +79,38 @@ def criador_processa_lote(arquivo, texto, meu_email, minha_senha, link_sistema):
     if arquivo is None or not texto.strip():
         return st.error("Erro: Preencha o arquivo e a lista.")
     
-    st.session_state.banco_dados["caminho_original"] = arquivo.name
-    st.session_state.banco_dados["conteudo_original"] = arquivo.getvalue()
-    st.session_state.banco_dados["assinantes"] = []
-    
+    st.session_state.pdf_original_conteudo = arquivo.getvalue()
     hasher = hashlib.sha256()
-    hasher.update(st.session_state.banco_dados["conteudo_original"])
-    st.session_state.banco_dados["hash_seguranca"] = hasher.hexdigest()
+    hasher.update(st.session_state.pdf_original_conteudo)
+    st.session_state.hash_seguranca = hasher.hexdigest()
 
     linhas = texto.strip().split("\n")
     base_url = link_sistema.split("?")[0]
     
-    for linha in linhas:
+    novos_assinantes = []
+    
+    for linha in lines:
         if ";" in linha:
             partes = linha.split(";")
             nome_limpo = partes[0].strip()
             email_limpo = partes[1].strip()
             token = secrets.token_hex(4)
             
-            st.session_state.banco_dados["assinantes"].append({
-                "nome": nome_limpo, 
-                "email": email_limpo, 
+            novos_assinantes.append({
                 "token": token,
-                "cpf": "", 
-                "status": "Pendente", 
-                "data": "-"
+                "nome": nome_limpo,
+                "email": email_limpo,
+                "cpf": "",
+                "status": "Pendente",
+                "data": "-",
+                "hash_doc": st.session_state.hash_seguranca
             })
             
             link_personalizado = f"{base_url}?token={token}"
             enviar_email_individual(meu_email, minha_senha, email_limpo, nome_limpo, link_personalizado)
             
-    st.success("Lote enviado com sucesso!")
+    salvar_dados_planilha(novos_assinantes)
+    st.success("Lote enviado e salvo no Google Sheets com sucesso!")
 
 # --- MENU LATERAL DE ACESSO RESTRITO ---
 with st.sidebar:
@@ -139,44 +145,47 @@ if autenticado:
             if st.button("🚀 Enviar Lote", type="primary"):
                 criador_processa_lote(m_arq, m_lote, m_email, m_senha, m_link)
         with c2:
-            st.subheader("Painel")
-            st.info("Aguardando processo...")
+            st.subheader("Planilha Ativa")
+            dados_atuais = ler_dados_planilha()
+            if dados_atuais:
+                st.dataframe(pd.DataFrame(dados_atuais), width="stretch")
+            else:
+                st.info("Nenhum dado na planilha.")
 
 # --- CONTEÚDO: ASSINANTE ---
 with aba2:
-    st.title("🖋️ Assinatura Eletrônica")
+    st.title("🖋️ Assinatura Eletrônica de Documentos")
     
+    lista_banco = ler_dados_planilha()
     assinante_atual = None
-    if token_acesso and st.session_state.banco_dados["assinantes"]:
-        for a in st.session_state.banco_dados["assinantes"]:
+    
+    if token_acesso and lista_banco:
+        for a in lista_banco:
             if str(a["token"]) == str(token_acesso):
                 assinante_atual = a
                 break
 
-    st.subheader("1. Minuta para Leitura")
-    if st.session_state.banco_dados["conteudo_original"] is not None:
-        st.download_button(
-            label="📖 Baixar minuta para leitura",
-            data=st.session_state.banco_dados["conteudo_original"],
-            file_name="minuta.pdf",
-            mime="application/pdf"
-        )
+    st.subheader("1. Identificação do Assinante")
+    if assinante_atual:
+        st.success(f"Documento localizado para: {assinante_atual['nome']}")
     else:
-        st.warning("Nenhum documento ativo no momento.")
+        if token_acesso:
+            st.error("Token inválido ou expirado.")
+        else:
+            st.warning("Aguardando link de acesso exclusivo enviado por e-mail.")
 
-    st.subheader("2. Identificação")
     nome_sug = assinante_atual["nome"] if assinante_atual else ""
     c_nome = st.text_input("Nome Completo", value=nome_sug)
     c_cpf = st.text_input("CPF")
     
     if st.button("✍️ Confirmar Assinatura", type="primary"):
-        if not st.session_state.banco_dados["assinantes"]:
-            st.error("Erro: Sem documento ativo.")
+        if not lista_banco:
+            st.error("Erro: Banco de dados vazio.")
         elif not c_nome or not c_cpf:
-            st.error("Erro: Preencha os campos.")
+            st.error("Erro: Preencha todos os campos.")
         else:
             encontrado = False
-            for a in st.session_state.banco_dados["assinantes"]:
+            for a in lista_banco:
                 valido = False
                 if token_acesso:
                     valido = (str(a["token"]) == str(token_acesso) and a["status"] == "Pendente")
@@ -191,39 +200,16 @@ with aba2:
                     break
             
             if not encontrado:
-                st.error("Erro: Inválido ou já assinado.")
+                st.error("Erro: Assinatura inválida ou lote já concluído.")
             else:
-                st.success("Assinatura registrada!")
-                
-                # COMPILAR ARQUIVO FINAL SEM CORTE DE LINHAS
-                escritor = PdfWriter()
-                with open("temp.pdf", "wb") as f:
-                    f.write(st.session_state.banco_dados["conteudo_original"])
-                for p in PdfReader("temp.pdf").pages:
-                    escritor.add_page(p)
-                with open("final.pdf", "wb") as f:
-                    escritor.write(f)
-                with open("final.pdf", "rb") as f:
-                    st.session_state.pdf_final_bytes = f.read()
-
-    st.subheader("Status")
-    todos = all(x["status"] == "Assinado" for x in st.session_state.banco_dados["assinantes"]) if st.session_state.banco_dados["assinantes"] else False
-    if "pdf_final_bytes" in st.session_state:
-        if todos:
-            st.balloons()
-            st.download_button(
-                label="📥 Baixar PDF Concluído",
-                data=st.session_state.pdf_final_bytes,
-                file_name="concluido.pdf",
-                mime="application/pdf"
-            )
-        else:
-            st.warning("Aguardando as demais assinaturas.")
+                salvar_dados_planilha(lista_banco)
+                st.success("Assinatura confirmada e registrada no Google Sheets!")
+                st.balloons()
 
 # --- CONTEÚDO: HISTÓRICO ---
 if autenticado:
     with aba3:
-        st.subheader("Status do Lote")
-        tabela = obter_tabela_historico()
-        if tabela:
-            st.dataframe(tabela, use_container_width=True)
+        st.subheader("Histórico de Assinaturas (Realtime)")
+        dados_finais = ler_dados_planilha()
+        if dados_finais:
+            st.dataframe(pd.DataFrame(dados_finais), width="stretch")
