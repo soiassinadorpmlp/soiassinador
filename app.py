@@ -22,8 +22,39 @@ GMAIL_PADRAO = "soiassinadorpmlp@gmail.com"
 LINK_SISTEMA_PADRAO = "https://soiassinador.streamlit.app"
 SPREADSHEET_ID = "13Vyiy-XBzR969JPTMJlWK3gpKcLRi9ftVRcO3kinoWE"
 
-# --- CHAVE PRIVADA ENVIADA POR VOCÊ (LINHA ÚNICA DEFINITIVA) ---
-CHAVE_PROPRIA_NOVA = r"-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCpPvjTTPOpXt7E\nH8ANQjWbiDWHWz8VjHhIxCrMAYxIc3Ge9fmBNqC99UM4NMCPamzFtu2FfU87zx5F\nbaCpVYBmSxzclTf7r+7Zmkd5qPJYK3BHylajH7lVGqSaXply78xtKV7KMcDFgKUV\nsmWf/5AsJGprvVb9nY6Kq2OKHa3wi2+isX7EzLNG2NpeWS9k/tG6cI3uQ91EFTRd\n9URkENfySweM3gfGPduJfZuI0eK5UQ5oHDlZzPA/4QOEj/lkLrFJlpNZ1B7Vn93B\nnod0lrf5n4bgrpliz/+kOEhk7PLhv8EvbNB662GV0i1aK31oN4cUoBI8yMvHLhF9\njRRhmNEnAgMBAAECggEAM/hy1wvHvMg1lrr7MfcVWBO9ADoMRpUycIHQdIG7LppI\nlxwISF3agUpZoF5OjRuMmDACgt3GYWLJ9F7kGWt4eLDzBWdK4B4XtblS3nB7Loj0\nOw9OiFvbAN+kEQUgkLNDLngoM+WQQPWue9mirD2Ba5SpGzlyh4GEvl8/uy8+9OCU\nYVaTY8llP++WfecEldqvwTOB3cPcNo8qC+7bAVwHbp2yiz2HfBqw6dQz0NuzHPK7\n+am+h0ZNirxEn2ZBo3GaN3u2XPYTQ4P2NPBbxRjfniGHjNa5m0BdO2R/NpTWX/vW\nT3Qp9mZ5p1PfY2MJEQsXtbwN6qxNsgRfBLcprhWiZQKBgQDa38FYdxHQjbYLeRZQ\nF36rh4dyxK771uwo7zoULemBZenclYfPP3otCyiWzs1AwQW2sMgcfRv1dEn9q+S3\lsAzwT3d0GPCZs6FYvRtBtUFBwcDUBpOT4v2gWdg7cQJGcWyzYEINy+W7WbQs3Qd\nR+uCUoqeHJwEIfPFepSfK/lqqwKBgQDF9DMyuIymwMiCqoxVytkXfRn0Arq0yKMj\nPqKTB8rPPdiR2LXkJCaAxk4T0bD7InJYew33vhSxsDK1U+3HsV3OEsZ6nkN/jcvi\nmGwoFci2OSMcehq9f9AV76zqZymqDvtOMVjQPV4aJxsKOtNhhkIzhaTT9h37Gnff\nHs7HiREzdQKBgQDKi9Z473dk8D9PTrb/Vz65raoC41CrbbEOEJRGqFY2kQFiSF5t\nw+hkVrcxGB+JlRacgewtsPl2pC70uWXnH3Kucl22L2qiNFFZzsEzQ+dNx7sNrcsq\nPSLg88+fO2j2owr49IQ7/hXkLb2/1NHXZv7ik1AEEaWvjVvxnAZ9ZkxiEQKBgFKh\nrmGE0gmlvc11neEOLPL2IMhP/1oJyreipMCVZx59ZZL0EHFseboVjXAOfz9F0M+I\nhnsdGIxXzcMNhttt+YdVJQ74U5rCORKcp8FP3pnaXgK8Ib9qxBT0GI08hRLc8CBi\nzv0WMNrf6hSqG6TBI49YQUbNnRQ9pz43IQAAAnMlAoGBAMtS16j3H35cOeGULuh9oMfUFIUPpBveuMP6rVohAz9KpOwChVU4EG+0/ILs1mGYivZLrIczBpFgkquME4OT/NoEymjC8pn/KSmCsbT7aLr3d2yolF3WN6sdbymjN5GVDoqwkyycWhDCcwrd97pVXdXaeg1dyoshfJ8vVT+OlX+z\n-----END PRIVATE KEY-----\n"
+# --- CHAVE PRIVADA DIVIDIDA (EVITA CORTES DO GITHUB) ---
+partes_chave = [
+    "-----BEGIN PRIVATE KEY-----\n",
+    "MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCpPvjTTPOpXt7E\n",
+    "H8ANQjWbiDWHWz8VjHhIxCrMAYxIc3Ge9fmBNqC99UM4NMCPamzFtu2FfU87zx5F\n",
+    "baCpVYBmSxzclTf7r+7Zmkd5qPJYK3BHylajH7lVGqSaXply78xtKV7KMcDFgKUV\n",
+    "mWf/5AsJGprvVb9nY6Kq2OKHa3wi2+isX7EzLNG2NpeWS9k/tG6cI3uQ91EFTRd\n",
+    "9URkENfySweM3gfGPduJfZuI0eK5UQ5oHDlZzPA/4QOEj/lkLrFJlpNZ1B7Vn93B\n",
+    "nod0lrf5n4bgrpliz/+kOEhk7PLhv8EvbNB662GV0i1aK31oN4cUoBI8yMvHLhF9\n",
+    "jRRhmNEnAgMBAAECggEAM/hy1wvHvMg1lrr7MfcVWBO9ADoMRpUycIHQdIG7LppI\n",
+    "IxwISF3agUpZoF5OjRuMmDACgt3GYWLJ9F7kGWt4eLDzBWdK4B4XtblS3nB7Loj0\n",
+    "Ow9OiFvbAN+kEQUgkLNDLngoM+WQQPWue9mirD2Ba5SpGzlyh4GEvl8/uy8+9OCU\n",
+    "YVaTY8llP++WfecEldqvwTOB3cPcNo8qC+7bAVwHbp2yiz2HfBqw6dQz0NuzHPK7\n",
+    "+am+h0ZNirxEn2ZBo3GaN3u2XPYTQ4P2NPBbxRjfniGHjNa5m0BdO2R/NpTWX/vW\n",
+    "T3Qp9mZ5p1PfY2MJEQsXtbwN6qxNsgRfBLcprhWiZQKBgQDa38FYdxHQjbYLeRZQ\n",
+    "F36rh4dyxK771uwo7zoULemBZenclYfPP3otCyiWzs1AwQW2sMgcfRv1dEn9q+S3\n",
+    "lsAzwT3d0GPCZs6FYvRtBtUFBwcDUBpOT4v2gWdg7cQJGcWyzYEINy+W7WbQs3Qd\n",
+    "R+uCUoqeHJwEIfPFepSfK/lqqwKBgQDF9DMyuIymwMiCqoxVytkXfRn0Arq0yKMj\n",
+    "PqKTB8rPPdiR2LXkJCaAxk4T0bD7InJYew33vhSxsDK1U+3HsV3OEsZ6nkN/jcvi\n",
+    "mGwoFci2OSMcehq9f9AV76zqZymqDvtOMVjQPV4aJxsKOtNhhkIzhaTT9h37Gnff\n",
+    "Hs7HiREzdQKBgQDKi9Z473dk8D9PTrb/Vz65raoC41CrbbEOEJRGqFY2kQFiSF5t\n",
+    "w+hkVrcxGB+JlRacgewtsPl2pC70uWXnH3Kucl22L2qiNFFZzsEzQ+dNx7sNrcsq\n",
+    "PSLg88+fO2j2owr49IQ7/hXkLb2/1NHXZv7ik1AEEaWvjVvxnAZ9ZkxiEQKBgFKh\n",
+    "rmGE0gmlvc11neEOLPL2IMhP/1oJyreipMCVZx59ZZL0EHFseboVjXAOfz9F0M+I\n",
+    "hnsdGIxXzcMNhttt+YdVJQ74U5rCORKcp8FP3pnaXgK8Ib9qxBT0GI08hRLc8CBi\n",
+    "zv0WMNrf6hSqG6TBI49YQUbNnRQ9pz43IQAAAnMlAoGBAMtS16j3H35cOeGULuh9\n",
+    "oMfUFIUPpBveuMP6rVohAz9KpOwChVU4EG+0/ILs1mGYivZLrIczBpFgkquME4OT\n",
+    "/NoEymjC8pn/KSmCsbT7aLr3d2yolF3WN6sdbymjN5GVDoqwkyycWhDCcwrd97pV\n",
+    "XdXaeg1dyoshfJ8vVT+OlX+z\n",
+    "-----END PRIVATE KEY-----\n"
+]
+
+CHAVE_PROPRIA_NOVA = "".join(partes_chave)
 
 credenciais_dict = {
     "type": "service_account",
@@ -118,7 +149,7 @@ def criador_processa_lote(arquivo, texto, meu_email, minha_senha, link_sistema):
     
     novos_assinantes = []
     
-    for linha in lines:
+    for linha in linhas:
         if ";" in linha:
             partes = linha.split(";")
             nome_limpo = partes[0].strip()
@@ -147,4 +178,103 @@ with st.sidebar:
     modo_admin = st.checkbox("Ativar Modo Criador", value=st.session_state.autenticado)
     
     if modo_admin:
-        senha = st.text_input("
+        senha = st.text_input("Senha", type="password")
+        if st.button("🔓 Entrar"):
+            if senha == "ChaveMestra123":
+                st.session_state.autenticado = True
+                st.rerun()
+            else:
+                st.error("Senha incorreta")
+    else:
+        st.session_state.autenticado = False
+
+if token_acesso:
+    st.session_state.autenticado = False
+
+# --- DEFINE VISIBILIDADE DAS ABAS ---
+if st.session_state.autenticado:
+    aba1, aba2, aba3 = st.tabs(["Criador", "Assinante", "Histórico"])
+else:
+    aba2, = st.tabs(["Assinante"])
+
+# --- CONTEÚDO: CRIADOR ---
+if st.session_state.autenticado:
+    with aba1:
+        c1, c2 = st.columns(2)
+        with c1:
+            m_email = st.text_input("Gmail Envio", value=GMAIL_PADRAO)
+            m_senha = st.text_input("Senha App", type="password")
+            m_link = st.text_input("Link App", value=LINK_SISTEMA_PADRAO)
+            m_arq = st.file_uploader("Contrato PDF", type=["pdf"])
+            m_lote = st.text_area("Lista (Nome; Email)")
+            if st.button("🚀 Enviar Lote", type="primary"):
+                criador_processa_lote(m_arq, m_lote, m_email, m_senha, m_link)
+        with c2:
+            st.subheader("Planilha Ativa")
+            dados_atuais = ler_dados_planilha()
+            if dados_atuais:
+                st.dataframe(pd.DataFrame(dados_atuais), width="stretch")
+            else:
+                st.info("Nenhum dado na planilha.")
+
+# --- CONTEÚDO: ASSINANTE ---
+with aba2:
+    st.title("🖋️ Assinatura Eletrônica de Documentos")
+    
+    lista_banco = ler_dados_planilha()
+    assinante_atual = None
+    
+    if token_acesso and lista_banco:
+        for a in lista_banco:
+            if str(a.get("token")) == str(token_acesso):
+                assinante_atual = a
+                break
+
+    st.subheader("1. Identificação do Assinante")
+    if assinante_atual:
+        st.success(f"Documento localizado para: {assinante_atual['nome']}")
+    else:
+        if token_acesso:
+            st.error("Token inválido ou expirado.")
+        else:
+            st.warning("Aguardando link de acesso exclusivo enviado por e-mail.")
+
+    nome_sug = assinante_atual["nome"] if assinante_atual else ""
+    c_nome = st.text_input("Nome Completo", value=nome_sug)
+    c_cpf = st.text_input("CPF")
+    
+    if st.button("✍️ Confirmar Assinatura", type="primary"):
+        if not lista_banco:
+            st.error("Erro: Banco de dados vazio.")
+        elif not c_nome or not c_cpf:
+            st.error("Erro: Preencha todos os campos.")
+        else:
+            encontrado = False
+            for a in lista_banco:
+                valido = False
+                if token_acesso:
+                    valido = (str(a.get("token")) == str(token_acesso) and a.get("status") == "Pendente")
+                else:
+                    valido = (str(a.get("nome")).lower() == c_nome.lower() and a.get("status") == "Pendente")
+                    
+                if valido:
+                    a["status"] = "Assinado"
+                    a["cpf"] = c_cpf
+                    a["data"] = "24/06/2026"
+                    encontrado = True
+                    break
+            
+            if not encontrado:
+                st.error("Erro: Assinatura inválida ou lote já concluído.")
+            else:
+                salvar_dados_planilha(lista_banco)
+                st.success("Assinatura confirmada e registrada no Google Sheets!")
+                st.balloons()
+
+# --- CONTEÚDO: HISTÓRICO ---
+if st.session_state.autenticado:
+    with aba3:
+        st.subheader("Histórico de Assinaturas (Realtime)")
+        dados_finais = ler_dados_planilha()
+        if dados_finais:
+            st.dataframe(pd.DataFrame(dados_finais), width="stretch")
