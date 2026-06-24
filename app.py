@@ -27,7 +27,10 @@ credenciais_dict = {
   "type": "service_account",
   "project_id": "soi-assinador",
   "private_key_id": "eaaef78044d8efc923f18954f006bb24d0411e58",
-  "private_key": r"-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCpPvjTTPOpXt7E\nH8ANQjWbiDWHWz8VjHhIxCrMAYxIc3Ge9fmBNqC99UM4NMCPamzFtu2FfU87zx5F\nbaCpVYBmSxzclTf7r+7Zmkd5qPJYK3BHylajH7lVGqSaXply78xtKV7KMcDFgKUV\nsmWf/5AsJGprvVb9nY6Kq2OKHa3wi2+isX7EzLNG2NpeWS9k/tG6cI3uQ91EFTRd\n9URkENfySweM3gfGPduJfZuI0eK5UQ5oHDlZzPA/4QOEj/lkLrFJlpNZ1B7Vn93B\nnod0lrf5n4bgrpliz/+kOEhk7PLhv8EvbNB662GV0i1aK31oN4cUoBI8yMvHLhF9\njRRhmNEnAgMBAAECggEAM/hy1wvHvMg1lrr7MfcVWBO9ADoMRpUycIHQdIG7LppI\nlxwISF3agUpZoF5OjRuMmDACgt3GYWLJ9F7kGWt4eLDzBWdK4B4XtblS3nB7Loj0\nOw9OiFvbAN+kEQUgkLNDLngoM+WQQPWue9mirD2Ba5SpGzlyh4GEvl8/uy8+9OCU\nYVaTY8llP++WfecEldqvwTOB3cPcNo8qC+7bAVwHbp2yiz2HfBqw6dQz0NuzHPK7\n+am+h0ZNirxEn2ZBo3GaN3u2XPYTQ4P2NPBbxRjfniGHjNa5m0BdO2R/NpTWX/vW\nT3Qp9mZ5p1PfY2MJEQsXtbwN6qxNsgRfBLcprhWiZQKBgQDa38FYdxHQjbYLeRZQ\nF36rh4dyxK771uwo7zoULemBZenclYfPP3otCyiWzs1AwQW2sMgcfRv1dEn9q+S3\nlsAzwT3d0GPCZs6FYvRtBtUFBwcDUBpOT4v2gWdg7cQJGcWyzYEINy+W7WbQs3Qd\nR+uCUoqeHJwEIfPFepSfK/lqqwKBgQDF9DMyuIymwMiCqoxVytkXfRn0Arq0yKMj\nPqKTB8rPPdiR2LXkJCaAxk4T0bD7InJYew33vhSxsDK1U+3HsV3OEsZ6nkN/jcvi\nmGwoFci2OSMcehq9f9AV76zqZymqDvtOMVjQPV4aJxsKOtNhhkIzhaTT9h37Gnff\nHs7HiREzdQKBgQDKi9Z473dk8D9PTrb/Vz65raoC41CrbbEOEJRGqFY2kQFiSF5t\nw+hkVrcxGB+JlRacgewtsPl2pC70uWXnH3Kucl22L2qiNFFZzsEzQ+dNx7sNrcsq\nPSLg88+fO2j2owr49IQ7/hXkLb2/1NHXZv7ik1AEEaWvjVvxnAZ9ZkxiEQKBgFKh\nrmGE0gmlvc11neEOLPL2IMhP/1oJyreipMCVZx59ZZL0EHFseboVjXAOfz9F0M+I\nhnsdGIxXzcMNhttt+YdVJQ74U5rCORKcp8FP3pnaXgK8Ib9qxBT0GI08hRLc8CBi\nzv0WMNrf6hSqG6TBI49YQUbNnRQ9pz43IQAAAnMlAoGBAMtS16j3H35cOeGULuh9\noMfUFIUPpBveuMP6rVohAz9KpOwChVU4EG+0/ILs1mGYivZLrIczBpFgkquME4OT\n/NoEymjC8pn/KSmCsbT7aLr3d2yolF3WN6sdbymjN5GVDoqwkyycWhDCcwrd97pV\nXdXaeg1dyoshfJ8vVT+OlX+z\n-----END PRIVATE KEY-----\n",
+  "private_key": r"-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCpPvjTTPOpXt7E\nH8ANQjWbiDWHWz8VjHhIxCrMAYxIc3Ge9fmBNqC99UM4NMCPamzFtu2FfU87zx5F\nbaCpVYBmSxzclTf7r+7Zmkd5qPJYK3BHylajH7lVGqSaXply78xtKV7KMcDFgKUV\nsmWf/5AsJGprvVb9nY6Kq2OKHa3wi2+isX7EzLNG2NpeWS9k/tG6cI3uQ91EFTRd\n9URkENfySweM3gfGPduJfZuI0eK5UQ5oHDlZzPA/4QOEj/lkLrFJlpNZ1B7Vn93B\nnod0lrf5n4bgrpliz/+kOEhk7PLhv8EvbNB662GV0i1aK31oN4cUoBI8yMvHLhF9\njRRhmNEnAgMBAAECggEAM/hy1wvHvMg1lrr7MfcVWBO9ADoMRpUycIHQdIG7LppI\nlxwISF3agUpZoF5OjRuMmDACgt3GYWLJ9F7kGWt4eLDzBWdK4B4XtblS3nB7Loj0\nOw9OiFvbAN+kEQUgkLNDLngoM+WQQPWue9mirD2Ba5SpGzlyh4GEvl8/uy8+9OCU\nYVaTY8llP++WfecEldqvwTOB3cPcNo8qC+7bAVwHbp2yiz2HfBqw6dQz0NuzHPK7\n+am+h0ZNirxEn2ZBo3GaN3u2XPYTQ4P2NPBbxRjfniGHjNa5m0BdO2R/NpTWX/vW\nT3Qp9mZ5p1PfY2MJEQsXtbwN6qxNsgRfBLcprhWiZQKBgQDa38FYdxHQjbYLeRZQ\nF36rh4dyxK771uwo7zoULemBZenclYfPP3otCyiWzs1AwQW2sMgcfRv1dEn9q+S3\lsAzwT3d0GPCZs6FYvRtBtUFBwcDUBpOT4v2gWdg7cQJGcWyzYEINy+W7WbQs3Qd\nR+uCUoqeHJwEIfPFepSfK/lqqwKBgQDF9DMyuIymwMiCqoxVytkXfRn0Arq0yKMj\nPqKTB8rPPdiR2LXkJCaAxk4T0bD7InJYew33vhSxsDK1U+3HsV3OEsZ6nkN/jcvi\nmGwoFci2OSMcehq9f9AV76zqZymqDvtOMVjQPV4aJxsKOtNhhkIzhaTT9h37Gnff\nHs7HiREzdQKBgQDKi9Z473dk8D9PTrb/Vz65raoC41CrbbEOEJRGqFY2kQFiSF5t\nw+hkVrcxGB+JlRacgewtsPl2pC70uWXnH3Kucl22L2qiNFFZzsEzQ+dNx7sNrcsq\nPSLg88+fO2j2owr49IQ7/hXkLb2/1NHXZv7ik1AEEaWvjVvxnAZ9ZkxiEQKBgFKh\nrmGE0gmlvc11neEOLPL2IMhP/1oJyreipMCVZx59ZZL0EHFseboVjXAOfz9F0M+I\nhnsdGIxXzcMNhttt+YdVJQ74U5rCORKcp8FP3pnaXgK8Ib9qxBT0GI08hRLc8CBi\nzv0WMNrf6hSqG6TBI49YQUbNnRQ9pz43IQAAAnMlAoGBAMtS16j3H35cOeGULuh9"
+    "oMfUFIUPpBveuMP6rVohAz9KpOwChVU4EG+0/ILs1mGYivZLrIczBpFgkquME4OT"
+    "/NoEymjC8pn/KSmCsbT7aLr3d2yolF3WN6sdbymjN5GVDoqwkyycWhDCcwrd97pV"
+    "XdXaeg1dyoshfJ8vVT+OlX+z\n-----END PRIVATE KEY-----\n",
   "client_email": "assinador-sheets@soi-assinador.iam.gserviceaccount.com",
   "client_id": "104754261635399610959",
   "auth_uri": "https://accounts.google.com/o/oauth2/auth",
@@ -40,11 +43,8 @@ credenciais_dict = {
 def obter_cliente_sheets():
     escopos = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
     dados_sanitizados = credenciais_dict.copy()
-    
-    # Tratamento via código para converter as quebras de linha de forma segura na memória
     if "\\n" in dados_sanitizados["private_key"]:
         dados_sanitizados["private_key"] = dados_sanitizados["private_key"].replace("\\n", "\n")
-        
     creds = Credentials.from_service_account_info(dados_sanitizados, scopes=escopos)
     return gspread.authorize(creds)
 
@@ -69,7 +69,9 @@ def salvar_dados_planilha(lista_assinantes):
     except Exception as e:
         st.error(f"Erro ao salvar na planilha: {e}")
 
-# --- MEMÓRIA DO ARQUIVO ORIGINAL ---
+# --- CONTROLO DE ESTADO (SESSION STATE) ---
+if "autenticado" not in st.session_state:
+    st.session_state.autenticado = False
 if "pdf_original_conteudo" not in st.session_state:
     st.session_state.pdf_original_conteudo = None
 if "hash_seguranca" not in st.session_state:
@@ -136,25 +138,30 @@ def criador_processa_lote(arquivo, texto, meu_email, minha_senha, link_sistema):
 # --- MENU LATERAL DE ACESSO RESTRITO ---
 with st.sidebar:
     st.subheader("Controle")
-    modo_admin = st.checkbox("Ativar Modo Criador")
-    autenticado = False
+    modo_admin = st.checkbox("Ativar Modo Criador", value=st.session_state.autenticado)
+    
     if modo_admin:
         senha = st.text_input("Senha", type="password")
-        if senha == "ChaveMestra123":
-            st.success("Liberado")
-            autenticado = True
+        if st.button("🔓 Entrar"):
+            if senha == "ChaveMestra123":
+                st.session_state.autenticado = True
+                st.rerun()
+            else:
+                st.error("Senha incorreta")
+    else:
+        st.session_state.autenticado = False
 
 if token_acesso:
-    autenticado = False
+    st.session_state.autenticado = False
 
-# --- ABAS ---
-if autenticado:
+# --- DEFINE VISIBILIDADE DAS ABAS ---
+if st.session_state.autenticado:
     aba1, aba2, aba3 = st.tabs(["Criador", "Assinante", "Histórico"])
 else:
     aba2, = st.tabs(["Assinante"])
 
 # --- CONTEÚDO: CRIADOR ---
-if autenticado:
+if st.session_state.autenticado:
     with aba1:
         c1, c2 = st.columns(2)
         with c1:
@@ -227,4 +234,10 @@ with aba2:
                 st.success("Assinatura confirmada e registrada no Google Sheets!")
                 st.balloons()
 
-# --- CONTEÚDO: HISTÓRICO
+# --- CONTEÚDO: HISTÓRICO ---
+if st.session_state.autenticado:
+    with aba3:
+        st.subheader("Histórico de Assinaturas (Realtime)")
+        dados_finais = ler_dados_planilha()
+        if dados_finais:
+            st.dataframe(pd.DataFrame(dados_finais), width="stretch")
