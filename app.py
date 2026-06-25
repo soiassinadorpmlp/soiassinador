@@ -8,6 +8,7 @@ import pandas as pd
 from gspread_dataframe import set_with_dataframe
 import gspread
 from google.oauth2.service_account import Credentials
+import google.auth.transport.requests
 
 # --- CONFIGURAÇÃO DA INTERFACE ---
 st.set_page_config(
@@ -16,15 +17,22 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- CONFIGURAÇÕES FIXAS (URL ATUALIZADA PARA ENGENHARIAPMLP) ---
+# --- CONFIGURAÇÕES FIXAS ---
 GMAIL_PADRAO = "soiassinadorpmlp@gmail.com"
 LINK_SISTEMA_PADRAO = "https://engenhariapmlp.streamlit.app"
 SPREADSHEET_ID = "13Vyiy-XBzR969JPTMJlWK3gpKcLRi9ftVRcO3kinoWE"
 
-# --- CONEXÃO DIRETA VIA ARQUIVO FÍSICO JSON ---
+# --- CONEXÃO DIRETA COM CORRETOR DE TIMEOUT ---
 def obter_cliente_sheets():
     escopos = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+    
+    # Carrega as credenciais do arquivo físico
     creds = Credentials.from_service_account_file('credenciais.json', scopes=escopos)
+    
+    # Força a renovação do token corrigindo qualquer atraso de relógio do servidor (Fix para Invalid JWT Signature)
+    request = google.auth.transport.requests.Request()
+    creds.refresh(request)
+    
     return gspread.authorize(creds)
 
 def ler_dados_planilha():
