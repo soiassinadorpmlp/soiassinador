@@ -1,6 +1,7 @@
 import hashlib
 import secrets
 import smtplib
+import base64
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import streamlit as st
@@ -16,15 +17,15 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- CONFIGURAÇÕES FIXAS ---
+# --- CONFIGURAÇÕES FIXAS (URL CORRIGIDA E SINTONIZADA COM O SERVIDOR) ---
 GMAIL_PADRAO = "soiassinadorpmlp@gmail.com"
-LINK_SISTEMA_PADRAO = "https://soiassinador.streamlit.app"
+LINK_SISTEMA_PADRAO = "https://soiassinadorpmlp.streamlit.app"
 SPREADSHEET_ID = "13Vyiy-XBzR969JPTMJlWK3gpKcLRi9ftVRcO3kinoWE"
 
-# --- CONEXÃO COM GOOGLE SHEETS ---
-@st.cache_resource(ttl=60)
+# --- CONEXÃO COM GOOGLE SHEETS VIA SECRETS MULTILINHA ---
 def obter_cliente_sheets():
     escopos = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+    
     creds_dict = {
         "type": st.secrets["google_type"],
         "project_id": st.secrets["google_project_id"],
@@ -37,6 +38,7 @@ def obter_cliente_sheets():
         "auth_provider_x509_cert_url": st.secrets["google_auth_provider_x509_cert_url"],
         "client_x509_cert_url": st.secrets["google_client_x509_cert_url"]
     }
+        
     creds = Credentials.from_service_account_info(creds_dict, scopes=escopos)
     return gspread.authorize(creds)
 
@@ -47,6 +49,7 @@ def ler_dados_planilha():
         worksheet = sh.get_worksheet(0)
         return worksheet.get_all_records()
     except Exception as e:
+        st.error(f"Erro ao acessar a planilha de assinaturas: {e}")
         return []
 
 def salvar_dados_planilha(lista_assinantes):
@@ -63,8 +66,6 @@ def salvar_dados_planilha(lista_assinantes):
 # --- CONTROLE DE ESTADO (SESSION STATE) ---
 if "autenticado" not in st.session_state:
     st.session_state.autenticado = False
-if "dados_planilha" not in st.session_state:
-    st.session_state.dados_planilha = ler_dados_planilha()
 
 token_acesso = st.query_params.get("token", None)
 
@@ -110,6 +111,9 @@ if st.session_state.autenticado:
     aba1, aba2, aba3 = st.tabs(["Criador", "Assinante", "Histórico"])
 else:
     aba2, = st.tabs(["Assinante"])
+
+# --- LER BANCO DE DADOS EM TEMPO REAL ---
+lista_banco = ler_dados_planilha()
 
 # --- CONTEÚDO: CRIADOR ---
 if st.session_state.autenticado:
@@ -158,15 +162,14 @@ if st.session_state.autenticado:
                         progresso.progress((idx + 1) / total)
                         
                     salvar_dados_planilha(novos_assinantes)
-                    st.session_state.dados_planilha = novos_assinantes
                     st.success("Lote enviado e salvo com sucesso!")
                     st.rerun()
                 else:
                     st.error("Erro: Preencha o arquivo, a lista e a senha do Gmail (Senha de App).")
         with c2:
             st.subheader("Planilha Ativa")
-            if st.session_state.dados_planilha:
-                st.dataframe(pd.DataFrame(st.session_state.dados_planilha), width="stretch")
+            if lista_banco:
+                st.dataframe(pd.DataFrame(lista_banco), width="stretch")
             else:
                 st.info("Nenhum dado na planilha ou aguardando sincronização.")
 
@@ -174,9 +177,7 @@ if st.session_state.autenticado:
 with aba2:
     st.title("🖋️ Assinatura Eletrônica de Documentos")
     
-    lista_banco = st.session_state.dados_planilha
     assinante_atual = None
-    
     if token_acesso and lista_banco:
         for a in lista_banco:
             if str(a.get("token")) == str(token_acesso):
@@ -220,7 +221,6 @@ with aba2:
                 st.error("Erro: Assinatura inválida ou lote já concluído.")
             else:
                 salvar_dados_planilha(lista_banco)
-                st.session_state.dados_planilha = lista_banco
                 st.success("Assinatura confirmada com sucesso!")
                 st.balloons()
                 st.rerun()
@@ -229,5 +229,5 @@ with aba2:
 if st.session_state.autenticado:
     with aba3:
         st.subheader("Histórico de Assinaturas (Realtime)")
-        if st.session_state.dados_planilha:
-            st.dataframe(pd.DataFrame(st.session_state.dados_planilha), width="stretch")
+        if lista_banco:
+            st.dataframe(pd.DataFrame(lista_banco), width="stretch")
