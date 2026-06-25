@@ -16,16 +16,14 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- CONFIGURAÇÕES FIXAS ---
+# --- CONFIGURAÇÕES FIXAS (URL ATUALIZADA PARA ENGENHARIAPMLP) ---
 GMAIL_PADRAO = "soiassinadorpmlp@gmail.com"
-LINK_SISTEMA_PADRAO = "https://soiassinadorpmlp.streamlit.app"
+LINK_SISTEMA_PADRAO = "https://engenhariapmlp.streamlit.app"
 SPREADSHEET_ID = "13Vyiy-XBzR969JPTMJlWK3gpKcLRi9ftVRcO3kinoWE"
 
 # --- CONEXÃO DIRETA VIA ARQUIVO FÍSICO JSON ---
 def obter_cliente_sheets():
     escopos = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-    
-    # Lê o arquivo chave.json diretamente do repositório, sem perda de bytes ou erro de formatação
     creds = Credentials.from_service_account_file('chave.json', scopes=escopos)
     return gspread.authorize(creds)
 
