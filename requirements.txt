@@ -1,5 +1,5 @@
-streamlit
-pypdf
 gspread
 gspread-dataframe
 pandas
+streamlit
+google-api-python-client
