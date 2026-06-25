@@ -1,7 +1,6 @@
 import hashlib
 import secrets
 import smtplib
-import base64
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import streamlit as st
@@ -22,22 +21,16 @@ GMAIL_PADRAO = "soiassinadorpmlp@gmail.com"
 LINK_SISTEMA_PADRAO = "https://soiassinador.streamlit.app"
 SPREADSHEET_ID = "13Vyiy-XBzR969JPTMJlWK3gpKcLRi9ftVRcO3kinoWE"
 
-# --- CONEXÃO COM GOOGLE SHEETS VIA BASE64 ---
+# --- CONEXÃO COM GOOGLE SHEETS VIA SECRETS MULTILINHA ---
 def obter_cliente_sheets():
     escopos = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
     
-    # Decodifica a chave Base64 de forma limpa e direta em memória
-    chave_base64 = st.secrets["google_private_key_base64"]
-    private_key_decodificada = base64.b64decode(chave_base64).decode("utf-8")
-    
-    # Substitui eventuais quebras literais por quebras reais de forma segura
-    private_key_ajustada = private_key_decodificada.replace("\\n", "\n")
-    
+    # Monta as credenciais pegando o texto puro salvo no painel
     creds_dict = {
         "type": st.secrets["google_type"],
         "project_id": st.secrets["google_project_id"],
         "private_key_id": st.secrets["google_private_key_id"],
-        "private_key": private_key_ajustada,
+        "private_key": st.secrets["google_private_key"],
         "client_email": st.secrets["google_client_email"],
         "client_id": st.secrets["google_client_id"],
         "auth_uri": st.secrets["google_auth_uri"],
@@ -140,64 +133,3 @@ if st.session_state.autenticado:
                     hasher.update(st.session_state.pdf_original_conteudo)
                     st.session_state.hash_seguranca = hasher.hexdigest()
                     linhas = m_lote.strip().split("\n")
-                    base_url = m_link.split("?")[0]
-                    novos_assinantes = []
-                    for linha in linhas:
-                        if ";" in linha:
-                            partes = linha.split(";")
-                            nome_limpo = partes[0].strip()
-                            email_limpo = partes[1].strip()
-                            token = secrets.token_hex(4)
-                            novos_assinantes.append({
-                                "token": token,
-                                "nome": nome_limpo,
-                                "email": email_limpo,
-                                "cpf": "",
-                                "status": "Pendente",
-                                "data": "-",
-                                "hash_doc": st.session_state.hash_seguranca
-                            })
-                            link_personalizado = f"{base_url}?token={token}"
-                            enviar_email_individual(m_email, m_senha, email_limpo, nome_limpo, link_personalizado)
-                    salvar_dados_planilha(novos_assinantes)
-                    st.success("Lote enviado e salvo no Google Sheets com sucesso!")
-                else:
-                    st.error("Erro: Preencha o arquivo e a lista.")
-        with c2:
-            st.subheader("Planilha Ativa")
-            dados_atuais = ler_dados_planilha()
-            if dados_atuais:
-                st.dataframe(pd.DataFrame(dados_atuais), width="stretch")
-            else:
-                st.info("Nenhum dado na planilha.")
-
-# --- CONTEÚDO: ASSINANTE ---
-with aba2:
-    st.title("🖋️ Assinatura Eletrônica de Documentos")
-    
-    lista_banco = ler_dados_planilha()
-    assinante_atual = None
-    
-    if token_acesso and lista_banco:
-        for a in lista_banco:
-            if str(a.get("token")) == str(token_acesso):
-                assinante_atual = a
-                break
-
-    st.subheader("1. Identificação do Assinante")
-    if assinante_atual:
-        st.success(f"Documento localizado para: {assinante_atual['nome']}")
-    else:
-        if token_acesso:
-            st.error("Token inválido ou expirado.")
-        else:
-            st.warning("Aguardando link de acesso exclusivo enviado por e-mail.")
-
-    c_nome = st.text_input("Nome Completo", value=assinante_atual["nome"] if assinante_atual else "")
-    c_cpf = st.text_input("CPF")
-    
-    if st.button("✍️ Confirmar Assinatura", type="primary"):
-        if not lista_banco:
-            st.error("Erro: Banco de dados vazio.")
-        elif not c_nome or not c_cpf:
-            st.error("Erro: Preencha todos os campos.")
