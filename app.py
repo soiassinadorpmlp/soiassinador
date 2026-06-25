@@ -197,9 +197,9 @@ if st.session_state.autenticado:
                         progresso = st.progress(0)
                         total = len(linhas)
                         
-                        for idx, linha in enumerate(linhas):
-                            if ";" in linha:
-                                partes = linha.split(";")
+                        for idx, inline in enumerate(linhas):
+                            if ";" in inline:
+                                partes = inline.split(";")
                                 nome_limpo = partes[0].strip()
                                 email_limpo = partes[1].strip()
                                 token = secrets.token_hex(4)
