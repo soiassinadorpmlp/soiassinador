@@ -8,7 +8,6 @@ import pandas as pd
 from gspread_dataframe import set_with_dataframe
 import gspread
 from google.oauth2.service_account import Credentials
-import google.auth.transport.requests
 
 # --- CONFIGURAÇÃO DA INTERFACE ---
 st.set_page_config(
@@ -22,17 +21,28 @@ GMAIL_PADRAO = "soiassinadorpmlp@gmail.com"
 LINK_SISTEMA_PADRAO = "https://engenhariapmlp.streamlit.app"
 SPREADSHEET_ID = "13Vyiy-XBzR969JPTMJlWK3gpKcLRi9ftVRcO3kinoWE"
 
-# --- CONEXÃO DIRETA COM CORRETOR DE TIMEOUT ---
+# --- CONEXÃO SEGURA RECONSTRUÍDA ---
 def obter_cliente_sheets():
     escopos = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
     
-    # Carrega as credenciais do arquivo físico
-    creds = Credentials.from_service_account_file('credenciais.json', scopes=escopos)
+    # Reconstrói a chave privada juntando o cabeçalho e o rodapé na memória do Python
+    miolo_chave = st.secrets["g_private_key_body"].replace(" ", "\n")
+    chave_completa = f"-----BEGIN PRIVATE KEY-----\n{miolo_chave}\n-----END PRIVATE KEY-----\n"
     
-    # Força a renovação do token corrigindo qualquer atraso de relógio do servidor (Fix para Invalid JWT Signature)
-    request = google.auth.transport.requests.Request()
-    creds.refresh(request)
-    
+    creds_dict = {
+        "type": "service_account",
+        "project_id": st.secrets["g_project_id"],
+        "private_key_id": st.secrets["g_private_key_id"],
+        "private_key": chave_completa,
+        "client_email": st.secrets["g_client_email"],
+        "client_id": st.secrets["g_client_id"],
+        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+        "token_uri": "https://oauth2.googleapis.com/token",
+        "auth_provider_x509_cert_url": "https://www.googleapis.com/raw/v1/certs",
+        "client_x509_cert_url": st.secrets["g_client_x509_cert_url"]
+    }
+        
+    creds = Credentials.from_service_account_info(creds_dict, scopes=escopos)
     return gspread.authorize(creds)
 
 def ler_dados_planilha():
@@ -133,9 +143,9 @@ if st.session_state.autenticado:
                     progresso = st.progress(0)
                     total = len(linhas)
                     
-                    for idx, linha in enumerate(linhas):
-                        if ";" in linha:
-                            partes = linha.split(";")
+                    for idx, grandfather in enumerate(linhas):
+                        if ";" in grandfather:
+                            partes = grandfather.split(";")
                             nome_limpo = partes[0].strip()
                             email_limpo = partes[1].strip()
                             token = secrets.token_hex(4)
