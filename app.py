@@ -8,6 +8,8 @@ import pandas as pd
 from gspread_dataframe import set_with_dataframe
 import gspread
 from google.oauth2.service_account import Credentials
+import base64
+import json
 
 # --- CONFIGURAÇÃO DA INTERFACE ---
 st.set_page_config(
@@ -21,33 +23,27 @@ GMAIL_PADRAO = "soiassinadorpmlp@gmail.com"
 LINK_SISTEMA_PADRAO = "https://engenhariapmlp.streamlit.app"
 SPREADSHEET_ID = "13Vyiy-XBzR969JPTMJlWK3gpKcLRi9ftVRcO3kinoWE"
 
-# --- CONEXÃO SEGURA RECONSTRUÍDA ---
+# --- CONEXÃO SEGURA VIA BASE64 ---
 def obter_cliente_sheets():
-    escopos = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-    
-    # Reconstrói a chave privada juntando o cabeçalho e o rodapé na memória do Python
-    miolo_chave = st.secrets["g_private_key_body"].replace(" ", "\n")
-    chave_completa = f"-----BEGIN PRIVATE KEY-----\n{miolo_chave}\n-----END PRIVATE KEY-----\n"
-    
-    creds_dict = {
-        "type": "service_account",
-        "project_id": st.secrets["g_project_id"],
-        "private_key_id": st.secrets["g_private_key_id"],
-        "private_key": chave_completa,
-        "client_email": st.secrets["g_client_email"],
-        "client_id": st.secrets["g_client_id"],
-        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-        "token_uri": "https://oauth2.googleapis.com/token",
-        "auth_provider_x509_cert_url": "https://www.googleapis.com/raw/v1/certs",
-        "client_x509_cert_url": st.secrets["g_client_x509_cert_url"]
-    }
+    try:
+        escopos = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
         
-    creds = Credentials.from_service_account_info(creds_dict, scopes=escopos)
-    return gspread.authorize(creds)
+        # Recupera o texto em Base64 dos Secrets e decodifica de volta para JSON string
+        b64_data = st.secrets["GOOGLE_CREDS_BASE64"]
+        json_string = base64.b64decode(b64_data).decode('utf-8')
+        creds_dict = json.loads(json_string)
+        
+        creds = Credentials.from_service_account_info(creds_dict, scopes=escopos)
+        return gspread.authorize(creds)
+    except Exception as e:
+        st.error(f"Erro crítico na decodificação das credenciais: {e}")
+        return None
 
 def ler_dados_planilha():
     try:
         gc = obter_cliente_sheets()
+        if gc is None:
+            return []
         sh = gc.open_by_key(SPREADSHEET_ID)
         worksheet = sh.get_worksheet(0)
         return worksheet.get_all_records()
@@ -58,6 +54,8 @@ def ler_dados_planilha():
 def salvar_dados_planilha(lista_assinantes):
     try:
         gc = obter_cliente_sheets()
+        if gc is None:
+            return
         sh = gc.open_by_key(SPREADSHEET_ID)
         worksheet = sh.get_worksheet(0)
         worksheet.clear()
@@ -143,9 +141,9 @@ if st.session_state.autenticado:
                     progresso = st.progress(0)
                     total = len(linhas)
                     
-                    for idx, grandfather in enumerate(linhas):
-                        if ";" in grandfather:
-                            partes = grandfather.split(";")
+                    for idx, linha in enumerate(linhas):
+                        if ";" in linha:
+                            partes = linha.split(";")
                             nome_limpo = partes[0].strip()
                             email_limpo = partes[1].strip()
                             token = secrets.token_hex(4)
