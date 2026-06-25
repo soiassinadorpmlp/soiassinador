@@ -218,8 +218,8 @@ if st.session_state.autenticado:
                                 link_personalizado = f"{base_url}?token={token}"
                                 enviar_email_individual(m_email, m_senha, email_limpo, nome_limpo, link_personalizado)
                             progresso.progress((idx + 1) / total)
-                            
-                        # Atualiza a planilha (Adiciona os novos mantendo os antigos se houver)
+                        
+                        # Atualiza a planilha
                         lista_atualizada = lista_banco + novos_assinantes if lista_banco else novos_assinantes
                         salvar_dados_planilha(lista_atualizada)
                         st.success("Lote enviado e gravado com sucesso!")
@@ -285,7 +285,7 @@ with aba2:
                     encontrado = True
                     break
             
-            if not encontrar_token := encontrado:
+            if not encontrado:
                 st.error("Erro: Assinatura inválida, CPF já registrado ou lote já concluído.")
             else:
                 salvar_dados_planilha(lista_banco)
