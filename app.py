@@ -220,8 +220,8 @@ if st.session_state.autenticado:
                             progresso.progress((idx + 1) / total)
                         
                         # Atualiza a planilha
-                        lista_atualizada = lista_banco + novos_assinantes if lista_banco else novos_assinantes
-                        salvar_dados_planilha(lista_atualizada)
+                        lista_updated = lista_banco + novos_assinantes if lista_banco else novos_assinantes
+                        salvar_dados_planilha(lista_updated)
                         st.success("Lote enviado e gravado com sucesso!")
                         st.rerun()
                 else:
