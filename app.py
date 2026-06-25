@@ -21,22 +21,23 @@ GMAIL_PADRAO = "soiassinadorpmlp@gmail.com"
 LINK_SISTEMA_PADRAO = "https://soiassinador.streamlit.app"
 SPREADSHEET_ID = "13Vyiy-XBzR969JPTMJlWK3gpKcLRi9ftVRcO3kinoWE"
 
-# --- CONEXÃO COM GOOGLE SHEETS VIA SECRETS ---
+# --- CONEXÃO COM GOOGLE SHEETS VIA SECRETS ISOLADOS ---
 def obter_cliente_sheets():
     escopos = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
     
-    creds_dict = dict(st.secrets["gcredentials"])
-    
-    if "private_key" in creds_dict:
-        raw_key = creds_dict["private_key"]
-        # Limpa cabeçalhos, rodapés, quebras de linha e espaços para obter apenas os dados puros
-        raw_key = raw_key.replace("-----BEGIN PRIVATE KEY-----", "").replace("-----END PRIVATE KEY-----", "")
-        raw_key = raw_key.replace("\n", "").replace("\r", "").replace(" ", "").strip()
-        
-        # Reconstrói o bloco PEM garantindo exatamente 64 caracteres por linha (padrão RFC)
-        linhas_pem = [raw_key[i:i+64] for i in range(0, len(raw_key), 64)]
-        bloco_pem_correto = "-----BEGIN PRIVATE KEY-----\n" + "\n".join(linhas_pem) + "\n-----END PRIVATE KEY-----\n"
-        creds_dict["private_key"] = bloco_pem_correto
+    # Monta o dicionário pegando cada valor isolado do painel, sem chance de quebra de TOML
+    creds_dict = {
+        "type": st.secrets["google_type"],
+        "project_id": st.secrets["google_project_id"],
+        "private_key_id": st.secrets["google_private_key_id"],
+        "private_key": st.secrets["google_private_key"].replace("\\n", "\n"),
+        "client_email": st.secrets["google_client_email"],
+        "client_id": st.secrets["google_client_id"],
+        "auth_uri": st.secrets["google_auth_uri"],
+        "token_uri": st.secrets["google_token_uri"],
+        "auth_provider_x509_cert_url": st.secrets["google_auth_provider_x509_cert_url"],
+        "client_x509_cert_url": st.secrets["google_client_x509_cert_url"]
+    }
         
     creds = Credentials.from_service_account_info(creds_dict, scopes=escopos)
     return gspread.authorize(creds)
