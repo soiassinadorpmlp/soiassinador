@@ -8,8 +8,11 @@ import pandas as pd
 from gspread_dataframe import set_with_dataframe
 import gspread
 from google.oauth2.service_account import Credentials
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseUpload
 import base64
 import json
+import io
 
 # --- CONFIGURAÇÃO DA INTERFACE ---
 st.set_page_config(
@@ -22,23 +25,68 @@ st.set_page_config(
 GMAIL_PADRAO = "soiassinadorpmlp@gmail.com"
 LINK_SISTEMA_PADRAO = "https://engenhariapmlp.streamlit.app"
 SPREADSHEET_ID = "13Vyiy-XBzR969JPTMJlWK3gpKcLRi9ftVRcO3kinoWE"
+PASTA_DRIVE_ID = "1fDD1nh2CrgveEg5NiIPeUjnK4RyWHiot"
 
-# --- CONEXÃO SEGURA VIA BASE64 ---
+# --- CONEXÃO SEGURA VIA BASE64 (SHEETS E DRIVE) ---
+def obter_credenciais():
+    escopos = [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive"
+    ]
+    b64_data = st.secrets["GOOGLE_CREDS_BASE64"]
+    json_string = base64.b64decode(b64_data).decode('utf-8')
+    creds_dict = json.loads(json_string)
+    return Credentials.from_service_account_info(creds_dict, scopes=escopos)
+
 def obter_cliente_sheets():
     try:
-        escopos = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-        
-        # Recupera o texto em Base64 dos Secrets e decodifica de volta para JSON string
-        b64_data = st.secrets["GOOGLE_CREDS_BASE64"]
-        json_string = base64.b64decode(b64_data).decode('utf-8')
-        creds_dict = json.loads(json_string)
-        
-        creds = Credentials.from_service_account_info(creds_dict, scopes=escopos)
+        creds = obter_credenciais()
         return gspread.authorize(creds)
     except Exception as e:
-        st.error(f"Erro crítico na decodificação das credenciais: {e}")
+        st.error(f"Erro crítico nas credenciais do Sheets: {e}")
         return None
 
+def obter_servico_drive():
+    try:
+        creds = obter_credenciais()
+        return build('drive', 'v3', credentials=creds)
+    except Exception as e:
+        st.error(f"Erro crítico nas credenciais do Drive: {e}")
+        return None
+
+# --- FUNÇÕES DE FAZER UPLOAD DE MINUTA PRO DRIVE ---
+def upload_pdf_para_drive(nome_arquivo, conteudo_bytes):
+    try:
+        service = obter_servico_drive()
+        if not service:
+            return None
+        
+        metadata = {
+            'name': nome_arquivo,
+            'parents': [PASTA_DRIVE_ID]
+        }
+        
+        fh = io.BytesIO(conteudo_bytes)
+        media = MediaIoBaseUpload(fh, mimetype='application/pdf', resumable=True)
+        
+        arquivo_criado = service.files().create(
+            body=metadata,
+            media_body=media,
+            fields='id, webViewLink'
+        ).execute()
+        
+        # Garante permissão de leitura para qualquer um com o link ver o PDF
+        service.permissions().create(
+            fileId=arquivo_criado.get('id'),
+            body={'type': 'anyone', 'role': 'reader'}
+        ).execute()
+        
+        return arquivo_criado.get('webViewLink')
+    except Exception as e:
+        st.error(f"Erro ao enviar PDF para o Google Drive: {e}")
+        return None
+
+# --- INTERAÇÃO COM PLANILHA ---
 def ler_dados_planilha():
     try:
         gc = obter_cliente_sheets()
@@ -64,12 +112,6 @@ def salvar_dados_planilha(lista_assinantes):
     except Exception as e:
         st.error(f"Erro ao salvar dados no sistema: {e}")
 
-# --- CONTROLE DE ESTADO (SESSION STATE) ---
-if "autenticado" not in st.session_state:
-    st.session_state.autenticado = False
-
-token_acesso = st.query_params.get("token", None)
-
 # --- MOTOR DE DISPARO DE E-MAIL ---
 def enviar_email_individual(meu_email, minha_senha, destino, nome, link):
     try:
@@ -78,7 +120,7 @@ def enviar_email_individual(meu_email, minha_senha, destino, nome, link):
         msg['To'] = destino
         msg['Subject'] = "Assinatura Digital Pendente"
         
-        corpo = f"Olá, {nome}.\n\nVocê foi incluído para assinar um documento oficial.\n\nAcesse pelo link seguro abaixo:\n{link}\n\nDigite seu NOME e CPF para validar. Não precisa de login."
+        corpo = f"Olá, {nome}.\n\nVocê foi incluído para assinar um documento oficial da engenharia.\n\nAcesse pelo link seguro abaixo para ler a minuta e assinar:\n{link}\n\nDigite seu NOME e CPF para validar. Não precisa de login."
         msg.attach(MIMEText(corpo, 'plain', 'utf-8'))
         servidor = smtplib.SMTP_SSL("smtp.gmail.com", 465)
         servidor.login(meu_email, minha_senha)
@@ -87,6 +129,12 @@ def enviar_email_individual(meu_email, minha_senha, destino, nome, link):
         return True
     except:
         return False
+
+# --- CONTROLE DE ESTADO (SESSION STATE) ---
+if "autenticado" not in st.session_state:
+    st.session_state.autenticado = False
+
+token_acesso = st.query_params.get("token", None)
 
 # --- MENU LATERAL DE ACESSO RESTRITO ---
 with st.sidebar:
@@ -124,49 +172,60 @@ if st.session_state.autenticado:
             m_email = st.text_input("Gmail Envio", value=GMAIL_PADRAO)
             m_senha = st.text_input("Senha App", type="password")
             m_link = st.text_input("Link App", value=LINK_SISTEMA_PADRAO)
-            m_arq = st.file_uploader("Contrato PDF", type=["pdf"])
+            m_arq = st.file_uploader("Contrato PDF (Minuta)", type=["pdf"])
             m_lote = st.text_area("Lista (Nome; Email)")
             
             if st.button("🚀 Enviar Lote", type="primary"):
                 if m_arq is not None and m_lote.strip() and m_senha:
                     pdf_conteudo = m_arq.getvalue()
-                    hasher = hashlib.sha256()
-                    hasher.update(pdf_conteudo)
-                    hash_seguranca = hasher.hexdigest()
                     
-                    linhas = m_lote.strip().split("\n")
-                    base_url = m_link.split("?")[0]
-                    novos_assinantes = []
+                    # Faz o upload da minuta para o Google Drive e pega o link público
+                    st.info("Fazendo upload seguro da minuta para o Google Drive...")
+                    link_drive_pdf = upload_pdf_para_drive(m_arq.name, pdf_conteudo)
                     
-                    progresso = st.progress(0)
-                    total = len(linhas)
-                    
-                    for idx, linha in enumerate(linhas):
-                        if ";" in linha:
-                            partes = linha.split(";")
-                            nome_limpo = partes[0].strip()
-                            email_limpo = partes[1].strip()
-                            token = secrets.token_hex(4)
-                            
-                            novos_assinantes.append({
-                                "token": token,
-                                "nome": nome_limpo,
-                                "email": email_limpo,
-                                "cpf": "",
-                                "status": "Pendente",
-                                "data": "-",
-                                "hash_doc": hash_seguranca
-                            })
-                            
-                            link_personalizado = f"{base_url}?token={token}"
-                            enviar_email_individual(m_email, m_senha, email_limpo, nome_limpo, link_personalizado)
-                        progresso.progress((idx + 1) / total)
+                    if not link_drive_pdf:
+                        st.error("Falha ao salvar o arquivo no Drive. Verifique as permissões da pasta.")
+                    else:
+                        hasher = hashlib.sha256()
+                        hasher.update(pdf_conteudo)
+                        hash_seguranca = hasher.hexdigest()
                         
-                    salvar_dados_planilha(novos_assinantes)
-                    st.success("Lote enviado e salvo com sucesso!")
-                    st.rerun()
+                        linhas = m_lote.strip().split("\n")
+                        base_url = m_link.split("?")[0]
+                        novos_assinantes = []
+                        
+                        progresso = st.progress(0)
+                        total = len(linhas)
+                        
+                        for idx, linha in enumerate(linhas):
+                            if ";" in linha:
+                                partes = linha.split(";")
+                                nome_limpo = partes[0].strip()
+                                email_limpo = partes[1].strip()
+                                token = secrets.token_hex(4)
+                                
+                                novos_assinantes.append({
+                                    "token": token,
+                                    "nome": nome_limpo,
+                                    "email": email_limpo,
+                                    "cpf": "",
+                                    "status": "Pendente",
+                                    "data": "-",
+                                    "hash_doc": hash_seguranca,
+                                    "link_minuta": link_drive_pdf
+                                })
+                                
+                                link_personalizado = f"{base_url}?token={token}"
+                                enviar_email_individual(m_email, m_senha, email_limpo, nome_limpo, link_personalizado)
+                            progresso.progress((idx + 1) / total)
+                            
+                        # Atualiza a planilha (Adiciona os novos mantendo os antigos se houver)
+                        lista_atualizada = lista_banco + novos_assinantes if lista_banco else novos_assinantes
+                        salvar_dados_planilha(lista_atualizada)
+                        st.success("Lote enviado e gravado com sucesso!")
+                        st.rerun()
                 else:
-                    st.error("Erro: Preencha o arquivo, a lista e a senha do Gmail (Senha de App).")
+                    st.error("Erro: Preencha a minuta PDF, a lista e a senha do Gmail.")
         with c2:
             st.subheader("Planilha Ativa")
             if lista_banco:
@@ -188,14 +247,21 @@ with aba2:
     st.subheader("1. Identificação do Assinante")
     if assinante_atual:
         st.success(f"Documento localizado para: {assinante_atual['nome']}")
+        
+        # BOTÃO EXTRAÍDO DO DRIVE: VISUALIZAR MINUTA
+        if assinante_atual.get("link_minuta"):
+            st.markdown(f'### 📄 2. Leitura Obrigatória')
+            st.link_button("👉 Clique para abrir e ler a Minuta do Contrato (PDF)", assinante_atual["link_minuta"], type="primary")
+            st.caption("Verifique todas as cláusulas do arquivo oficial antes de prosseguir para a assinatura abaixo.")
     else:
         if token_acesso:
             st.error("Token inválido ou expirado.")
         else:
             st.warning("Aguardando link de acesso exclusivo enviado por e-mail.")
 
-    c_nome = st.text_input("Nome Completo", value=assinante_atual["nome"] if assinante_atual else "")
-    c_cpf = st.text_input("CPF")
+    st.markdown("### 📝 3. Validação Jurídica")
+    c_nome = st.text_input("Confirmar Nome Completo", value=assinante_atual["nome"] if assinante_atual else "")
+    c_cpf = st.text_input("Digitar CPF para assinatura")
     
     if st.button("✍️ Confirmar Assinatura", type="primary"):
         if not lista_banco:
@@ -214,15 +280,16 @@ with aba2:
                 if valido:
                     a["status"] = "Assinado"
                     a["cpf"] = c_cpf
-                    a["data"] = "25/06/2026"
+                    from datetime import datetime
+                    a["data"] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
                     encontrado = True
                     break
             
-            if not encontrado:
-                st.error("Erro: Assinatura inválida ou lote já concluído.")
+            if not encontrar_token := encontrado:
+                st.error("Erro: Assinatura inválida, CPF já registrado ou lote já concluído.")
             else:
                 salvar_dados_planilha(lista_banco)
-                st.success("Assinatura confirmada com sucesso!")
+                st.success("Sua assinatura foi validada e registrada com sucesso!")
                 st.balloons()
                 st.rerun()
 
