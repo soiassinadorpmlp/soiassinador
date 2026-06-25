@@ -21,27 +21,12 @@ GMAIL_PADRAO = "soiassinadorpmlp@gmail.com"
 LINK_SISTEMA_PADRAO = "https://soiassinadorpmlp.streamlit.app"
 SPREADSHEET_ID = "13Vyiy-XBzR969JPTMJlWK3gpKcLRi9ftVRcO3kinoWE"
 
-# --- CONEXÃO COM GOOGLE SHEETS VIA LINHA CONTÍNUA ---
+# --- CONEXÃO DIRETA VIA ARQUIVO FÍSICO JSON ---
 def obter_cliente_sheets():
     escopos = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
     
-    # Pega a linha contínua e injeta as quebras de linha oficiais (\n) de forma cirúrgica
-    chave_pura = st.secrets["google_private_key"].replace("\\n", "\n")
-    
-    creds_dict = {
-        "type": st.secrets["google_type"],
-        "project_id": st.secrets["google_project_id"],
-        "private_key_id": st.secrets["google_private_key_id"],
-        "private_key": chave_pura,
-        "client_email": st.secrets["google_client_email"],
-        "client_id": st.secrets["google_client_id"],
-        "auth_uri": st.secrets["google_auth_uri"],
-        "token_uri": st.secrets["google_token_uri"],
-        "auth_provider_x509_cert_url": st.secrets["google_auth_provider_x509_cert_url"],
-        "client_x509_cert_url": st.secrets["google_client_x509_cert_url"]
-    }
-        
-    creds = Credentials.from_service_account_info(creds_dict, scopes=escopos)
+    # Lê o arquivo chave.json diretamente do repositório, sem perda de bytes ou erro de formatação
+    creds = Credentials.from_service_account_file('chave.json', scopes=escopos)
     return gspread.authorize(creds)
 
 def ler_dados_planilha():
