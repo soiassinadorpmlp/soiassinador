@@ -24,7 +24,7 @@ SPREADSHEET_ID = "13Vyiy-XBzR969JPTMJlWK3gpKcLRi9ftVRcO3kinoWE"
 # --- CONEXÃO DIRETA VIA ARQUIVO FÍSICO JSON ---
 def obter_cliente_sheets():
     escopos = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-    creds = Credentials.from_service_account_file('chave.json', scopes=escopos)
+    creds = Credentials.from_service_account_file('credenciais.json', scopes=escopos)
     return gspread.authorize(creds)
 
 def ler_dados_planilha():
