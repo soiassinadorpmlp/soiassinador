@@ -209,4 +209,93 @@ if st.session_state.autenticado:
                                     "nome": nome_limpo,
                                     "email": email_limpo,
                                     "cpf": "",
-                                    "status
+                                    "status": "Pendente",
+                                    "data": "-",
+                                    "hash_doc": hash_seguranca,
+                                    "link_minuta": link_drive_pdf
+                                })
+                                
+                                link_personalizado = f"{base_url}?token={token}"
+                                enviar_email_individual(m_email, m_senha, email_limpo, nome_limpo, link_personalizado)
+                            progresso.progress((idx + 1) / total)
+                        
+                        # Atualiza a planilha
+                        lista_atualizada = lista_banco + novos_assinantes if lista_banco else novos_assinantes
+                        salvar_dados_planilha(lista_atualizada)
+                        st.success("Lote enviado e gravado com sucesso!")
+                        st.rerun()
+                else:
+                    st.error("Erro: Preencha a minuta PDF, a lista e a senha do Gmail.")
+        with c2:
+            st.subheader("Planilha Ativa")
+            if lista_banco:
+                st.dataframe(pd.DataFrame(lista_banco), width="stretch")
+            else:
+                st.info("Nenhum dado na planilha ou aguardando sincronização.")
+
+# --- CONTEÚDO: ASSINANTE ---
+with aba2:
+    st.title("🖋️ Assinatura Eletrônica de Documentos")
+    
+    assinante_atual = None
+    if token_acesso and lista_banco:
+        for a in lista_banco:
+            if str(a.get("token")) == str(token_acesso):
+                assinante_atual = a
+                break
+
+    st.subheader("1. Identificação do Assinante")
+    if assinante_atual:
+        st.success(f"Documento localizado para: {assinante_atual['nome']}")
+        
+        # BOTÃO EXTRAÍDO DO DRIVE: VISUALIZAR MINUTA
+        if assinante_atual.get("link_minuta"):
+            st.markdown(f'### 📄 2. Leitura Obrigatória')
+            st.link_button("👉 Clique para abrir e ler a Minuta do Contrato (PDF)", assinante_atual["link_minuta"], type="primary")
+            st.caption("Verifique todas as cláusulas do arquivo oficial antes de prosseguir para a assinatura abaixo.")
+    else:
+        if token_acesso:
+            st.error("Token inválido ou expirado.")
+        else:
+            st.warning("Aguardando link de acesso exclusivo enviado por e-mail.")
+
+    st.markdown("### 📝 3. Validação Jurídica")
+    c_nome = st.text_input("Confirmar Nome Completo", value=assinante_atual["nome"] if assinante_atual else "")
+    c_cpf = st.text_input("Digitar CPF para assinatura")
+    
+    if st.button("✍️ Confirmar Assinatura", type="primary"):
+        if not lista_banco:
+            st.error("Erro: Banco de dados vazio.")
+        elif not c_nome or not c_cpf:
+            st.error("Erro: Preencha todos os campos.")
+        else:
+            encontrado = False
+            for a in lista_banco:
+                valido = False
+                if token_acesso:
+                    valido = (str(a.get("token")) == str(token_acesso) and a.get("status") == "Pendente")
+                else:
+                    valido = (str(a.get("nome")).lower() == c_nome.lower() and a.get("status") == "Pendente")
+                    
+                if valido:
+                    a["status"] = "Assinado"
+                    a["cpf"] = c_cpf
+                    from datetime import datetime
+                    a["data"] = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+                    encontrado = True
+                    break
+            
+            if not encontrado:
+                st.error("Erro: Assinatura inválida, CPF já registrado ou lote já concluído.")
+            else:
+                salvar_dados_planilha(lista_banco)
+                st.success("Sua assinatura foi validada e registrada com sucesso!")
+                st.balloons()
+                st.rerun()
+
+# --- CONTEÚDO: HISTÓRICO ---
+if st.session_state.autenticado:
+    with aba3:
+        st.subheader("Histórico de Assinaturas (Realtime)")
+        if lista_banco:
+            st.dataframe(pd.DataFrame(lista_banco), width="stretch")
