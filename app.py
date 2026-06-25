@@ -1,7 +1,6 @@
 import hashlib
 import secrets
 import smtplib
-import base64
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import streamlit as st
@@ -17,20 +16,23 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- CONFIGURAÇÕES FIXAS (URL CORRIGIDA E SINTONIZADA COM O SERVIDOR) ---
+# --- CONFIGURAÇÕES FIXAS ---
 GMAIL_PADRAO = "soiassinadorpmlp@gmail.com"
 LINK_SISTEMA_PADRAO = "https://soiassinadorpmlp.streamlit.app"
 SPREADSHEET_ID = "13Vyiy-XBzR969JPTMJlWK3gpKcLRi9ftVRcO3kinoWE"
 
-# --- CONEXÃO COM GOOGLE SHEETS VIA SECRETS MULTILINHA ---
+# --- CONEXÃO COM GOOGLE SHEETS VIA LINHA CONTÍNUA ---
 def obter_cliente_sheets():
     escopos = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+    
+    # Pega a linha contínua e injeta as quebras de linha oficiais (\n) de forma cirúrgica
+    chave_pura = st.secrets["google_private_key"].replace("\\n", "\n")
     
     creds_dict = {
         "type": st.secrets["google_type"],
         "project_id": st.secrets["google_project_id"],
         "private_key_id": st.secrets["google_private_key_id"],
-        "private_key": st.secrets["google_private_key"],
+        "private_key": chave_pura,
         "client_email": st.secrets["google_client_email"],
         "client_id": st.secrets["google_client_id"],
         "auth_uri": st.secrets["google_auth_uri"],
