@@ -1,6 +1,7 @@
 import hashlib
 import secrets
 import smtplib
+import base64
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import streamlit as st
@@ -21,16 +22,22 @@ GMAIL_PADRAO = "soiassinadorpmlp@gmail.com"
 LINK_SISTEMA_PADRAO = "https://soiassinador.streamlit.app"
 SPREADSHEET_ID = "13Vyiy-XBzR969JPTMJlWK3gpKcLRi9ftVRcO3kinoWE"
 
-# --- CONEXÃO COM GOOGLE SHEETS VIA SECRETS ISOLADOS ---
+# --- CONEXÃO COM GOOGLE SHEETS VIA BASE64 ---
 def obter_cliente_sheets():
     escopos = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
     
-    # Monta o dicionário pegando cada valor isolado do painel, sem chance de quebra de TOML
+    # Decodifica a chave Base64 de forma limpa e direta em memória
+    chave_base64 = st.secrets["google_private_key_base64"]
+    private_key_decodificada = base64.b64decode(chave_base64).decode("utf-8")
+    
+    # Substitui eventuais quebras literais por quebras reais de forma segura
+    private_key_ajustada = private_key_decodificada.replace("\\n", "\n")
+    
     creds_dict = {
         "type": st.secrets["google_type"],
         "project_id": st.secrets["google_project_id"],
         "private_key_id": st.secrets["google_private_key_id"],
-        "private_key": st.secrets["google_private_key"].replace("\\n", "\n"),
+        "private_key": private_key_ajustada,
         "client_email": st.secrets["google_client_email"],
         "client_id": st.secrets["google_client_id"],
         "auth_uri": st.secrets["google_auth_uri"],
@@ -91,44 +98,6 @@ def enviar_email_individual(meu_email, minha_senha, destino, nome, link):
     except:
         return False
 
-# --- PROCESSAR ENTRADA DE LOTE ---
-def criador_processa_lote(arquivo, texto, meu_email, minha_senha, link_sistema):
-    if arquivo is None or not texto.strip():
-        return st.error("Erro: Preencha o arquivo e a lista.")
-    
-    st.session_state.pdf_original_conteudo = arquivo.getvalue()
-    hasher = hashlib.sha256()
-    hasher.update(st.session_state.pdf_original_conteudo)
-    st.session_state.hash_seguranca = hasher.hexdigest()
-
-    linhas = texto.strip().split("\n")
-    base_url = link_sistema.split("?")[0]
-    
-    novos_assinantes = []
-    
-    for linha in linhas:
-        if ";" in linha:
-            partes = linha.split(";")
-            nome_limpo = partes[0].strip()
-            email_limpo = partes[1].strip()
-            token = secrets.token_hex(4)
-            
-            novos_assinantes.append({
-                "token": token,
-                "nome": nome_limpo,
-                "email": email_limpo,
-                "cpf": "",
-                "status": "Pendente",
-                "data": "-",
-                "hash_doc": st.session_state.hash_seguranca
-            })
-            
-            link_personalizado = f"{base_url}?token={token}"
-            enviar_email_individual(meu_email, minha_senha, email_limpo, nome_limpo, link_personalizado)
-            
-    salvar_dados_planilha(novos_assinantes)
-    st.success("Lote enviado e salvo no Google Sheets com sucesso!")
-
 # --- MENU LATERAL DE ACESSO RESTRITO ---
 with st.sidebar:
     st.subheader("Controle")
@@ -165,7 +134,35 @@ if st.session_state.autenticado:
             m_arq = st.file_uploader("Contrato PDF", type=["pdf"])
             m_lote = st.text_area("Lista (Nome; Email)")
             if st.button("🚀 Enviar Lote", type="primary"):
-                criador_processa_lote(m_arq, m_lote, m_email, m_senha, m_link)
+                if m_arq is not None and m_lote.strip():
+                    st.session_state.pdf_original_conteudo = m_arq.getvalue()
+                    hasher = hashlib.sha256()
+                    hasher.update(st.session_state.pdf_original_conteudo)
+                    st.session_state.hash_seguranca = hasher.hexdigest()
+                    linhas = m_lote.strip().split("\n")
+                    base_url = m_link.split("?")[0]
+                    novos_assinantes = []
+                    for linha in linhas:
+                        if ";" in linha:
+                            partes = linha.split(";")
+                            nome_limpo = partes[0].strip()
+                            email_limpo = partes[1].strip()
+                            token = secrets.token_hex(4)
+                            novos_assinantes.append({
+                                "token": token,
+                                "nome": nome_limpo,
+                                "email": email_limpo,
+                                "cpf": "",
+                                "status": "Pendente",
+                                "data": "-",
+                                "hash_doc": st.session_state.hash_seguranca
+                            })
+                            link_personalizado = f"{base_url}?token={token}"
+                            enviar_email_individual(m_email, m_senha, email_limpo, nome_limpo, link_personalizado)
+                    salvar_dados_planilha(novos_assinantes)
+                    st.success("Lote enviado e salvo no Google Sheets com sucesso!")
+                else:
+                    st.error("Erro: Preencha o arquivo e a lista.")
         with c2:
             st.subheader("Planilha Ativa")
             dados_atuais = ler_dados_planilha()
@@ -204,33 +201,3 @@ with aba2:
             st.error("Erro: Banco de dados vazio.")
         elif not c_nome or not c_cpf:
             st.error("Erro: Preencha todos os campos.")
-        else:
-            encontrado = False
-            for a in lista_banco:
-                valido = False
-                if token_acesso:
-                    valido = (str(a.get("token")) == str(token_acesso) and a.get("status") == "Pendente")
-                else:
-                    valido = (str(a.get("nome")).lower() == c_nome.lower() and a.get("status") == "Pendente")
-                    
-                if valido:
-                    a["status"] = "Assinado"
-                    a["cpf"] = c_cpf
-                    a["data"] = "24/06/2026"
-                    encontrado = True
-                    break
-            
-            if not encontrado:
-                st.error("Erro: Assinatura inválida ou lote já concluído.")
-            else:
-                salvar_dados_planilha(lista_banco)
-                st.success("Assinatura confirmada e registrada no Google Sheets!")
-                st.balloons()
-
-# --- CONTEÚDO: HISTÓRICO ---
-if st.session_state.autenticado:
-    with aba3:
-        st.subheader("Histórico de Assinaturas (Realtime)")
-        dados_finais = ler_dados_planilha()
-        if dados_finais:
-            st.dataframe(pd.DataFrame(dados_finais), width="stretch")
