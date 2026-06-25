@@ -21,11 +21,10 @@ GMAIL_PADRAO = "soiassinadorpmlp@gmail.com"
 LINK_SISTEMA_PADRAO = "https://soiassinador.streamlit.app"
 SPREADSHEET_ID = "13Vyiy-XBzR969JPTMJlWK3gpKcLRi9ftVRcO3kinoWE"
 
-# --- CONEXÃO COM GOOGLE SHEETS VIA SECRETS MULTILINHA ---
+# --- CONEXÃO COM GOOGLE SHEETS ---
+@st.cache_resource(ttl=60)
 def obter_cliente_sheets():
     escopos = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-    
-    # Monta as credenciais pegando o texto puro salvo no painel
     creds_dict = {
         "type": st.secrets["google_type"],
         "project_id": st.secrets["google_project_id"],
@@ -38,7 +37,6 @@ def obter_cliente_sheets():
         "auth_provider_x509_cert_url": st.secrets["google_auth_provider_x509_cert_url"],
         "client_x509_cert_url": st.secrets["google_client_x509_cert_url"]
     }
-        
     creds = Credentials.from_service_account_info(creds_dict, scopes=escopos)
     return gspread.authorize(creds)
 
@@ -49,7 +47,6 @@ def ler_dados_planilha():
         worksheet = sh.get_worksheet(0)
         return worksheet.get_all_records()
     except Exception as e:
-        st.error(f"Erro ao acessar a planilha de assinaturas: {e}")
         return []
 
 def salvar_dados_planilha(lista_assinantes):
@@ -66,10 +63,8 @@ def salvar_dados_planilha(lista_assinantes):
 # --- CONTROLE DE ESTADO (SESSION STATE) ---
 if "autenticado" not in st.session_state:
     st.session_state.autenticado = False
-if "pdf_original_conteudo" not in st.session_state:
-    st.session_state.pdf_original_conteudo = None
-if "hash_seguranca" not in st.session_state:
-    st.session_state.hash_seguranca = None
+if "dados_planilha" not in st.session_state:
+    st.session_state.dados_planilha = ler_dados_planilha()
 
 token_acesso = st.query_params.get("token", None)
 
@@ -126,21 +121,28 @@ if st.session_state.autenticado:
             m_link = st.text_input("Link App", value=LINK_SISTEMA_PADRAO)
             m_arq = st.file_uploader("Contrato PDF", type=["pdf"])
             m_lote = st.text_area("Lista (Nome; Email)")
+            
             if st.button("🚀 Enviar Lote", type="primary"):
-                if m_arq is not None and m_lote.strip():
-                    st.session_state.pdf_original_conteudo = m_arq.getvalue()
+                if m_arq is not None and m_lote.strip() and m_senha:
+                    pdf_conteudo = m_arq.getvalue()
                     hasher = hashlib.sha256()
-                    hasher.update(st.session_state.pdf_original_conteudo)
-                    st.session_state.hash_seguranca = hasher.hexdigest()
+                    hasher.update(pdf_conteudo)
+                    hash_seguranca = hasher.hexdigest()
+                    
                     linhas = m_lote.strip().split("\n")
                     base_url = m_link.split("?")[0]
                     novos_assinantes = []
-                    for linha in linhas:
+                    
+                    progresso = st.progress(0)
+                    total = len(linhas)
+                    
+                    for idx, linha in enumerate(linhas):
                         if ";" in linha:
                             partes = linha.split(";")
                             nome_limpo = partes[0].strip()
                             email_limpo = partes[1].strip()
                             token = secrets.token_hex(4)
+                            
                             novos_assinantes.append({
                                 "token": token,
                                 "nome": nome_limpo,
@@ -148,27 +150,31 @@ if st.session_state.autenticado:
                                 "cpf": "",
                                 "status": "Pendente",
                                 "data": "-",
-                                "hash_doc": st.session_state.hash_seguranca
+                                "hash_doc": hash_seguranca
                             })
+                            
                             link_personalizado = f"{base_url}?token={token}"
                             enviar_email_individual(m_email, m_senha, email_limpo, nome_limpo, link_personalizado)
+                        progresso.progress((idx + 1) / total)
+                        
                     salvar_dados_planilha(novos_assinantes)
-                    st.success("Lote enviado e salvo no Google Sheets com sucesso!")
+                    st.session_state.dados_planilha = novos_assinantes
+                    st.success("Lote enviado e salvo com sucesso!")
+                    st.rerun()
                 else:
-                    st.error("Erro: Preencha o arquivo e a lista.")
+                    st.error("Erro: Preencha o arquivo, a lista e a senha do Gmail (Senha de App).")
         with c2:
             st.subheader("Planilha Ativa")
-            dados_atuais = ler_dados_planilha()
-            if dados_atuais:
-                st.dataframe(pd.DataFrame(dados_atuais), width="stretch")
+            if st.session_state.dados_planilha:
+                st.dataframe(pd.DataFrame(st.session_state.dados_planilha), width="stretch")
             else:
-                st.info("Nenhum dado na planilha.")
+                st.info("Nenhum dado na planilha ou aguardando sincronização.")
 
 # --- CONTEÚDO: ASSINANTE ---
 with aba2:
     st.title("🖋️ Assinatura Eletrônica de Documentos")
     
-    lista_banco = ler_dados_planilha()
+    lista_banco = st.session_state.dados_planilha
     assinante_atual = None
     
     if token_acesso and lista_banco:
@@ -214,13 +220,14 @@ with aba2:
                 st.error("Erro: Assinatura inválida ou lote já concluído.")
             else:
                 salvar_dados_planilha(lista_banco)
-                st.success("Assinatura confirmada e registrada no Google Sheets!")
+                st.session_state.dados_planilha = lista_banco
+                st.success("Assinatura confirmada com sucesso!")
                 st.balloons()
+                st.rerun()
 
 # --- CONTEÚDO: HISTÓRICO ---
 if st.session_state.autenticado:
     with aba3:
         st.subheader("Histórico de Assinaturas (Realtime)")
-        dados_finais = ler_dados_planilha()
-        if dados_finais:
-            st.dataframe(pd.DataFrame(dados_finais), width="stretch")
+        if st.session_state.dados_planilha:
+            st.dataframe(pd.DataFrame(st.session_state.dados_planilha), width="stretch")
