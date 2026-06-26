@@ -56,7 +56,6 @@ def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante
     try:
         caminho_protocolo_temp = caminho_pdf_original.replace(".pdf", "_protocolo_temp.pdf")
         
-        # 1. Configuração do documento ReportLab
         doc = SimpleDocTemplate(caminho_protocolo_temp, pagesize=letter, leftMargin=36, rightMargin=36, topMargin=36, bottomMargin=36)
         story = []
         
@@ -130,7 +129,6 @@ def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante
         
         doc.build(story)
         
-        # 2. Mesclar folhas
         reader_original = PdfReader(caminho_pdf_original)
         reader_protocolo = PdfReader(caminho_protocolo_temp)
         writer = PdfWriter()
@@ -220,7 +218,7 @@ with st.sidebar:
 if token_acesso:
     st.session_state.autenticado = False
 
-# --- DEFINE VISIBILIDADE DAS ABAS (ADICIONADA ABA DE ARQUIVOS ASSINADOS) ---
+# --- DEFINE VISIBILIDADE DAS ABAS ---
 if st.session_state.autenticado:
     aba1, aba2, aba3, aba4 = st.tabs(["Criador", "Assinante", "Histórico", "📂 Arquivos Concluídos"])
 else:
@@ -238,7 +236,6 @@ if st.session_state.autenticado:
             m_senha = st.text_input("Senha App", type="password")
             m_link = st.text_input("Link App", value=LINK_SISTEMA_PADRAO)
             
-            # NOVO CAMPO: Nome final personalizado para o arquivo
             m_nome_doc = st.text_input("Nome de Identificação do Arquivo (Ex: Contrato_Locacao_01)")
             
             m_arq = st.file_uploader("Contrato PDF (Minuta)", type=["pdf"])
@@ -250,13 +247,11 @@ if st.session_state.autenticado:
                     
                     st.info("Processando e salvando a minuta com segurança...")
                     
-                    # Trata o nome digitado para garantir que termine com .pdf sem espaços perigosos
                     nome_final_pdf = m_nome_doc.strip().replace(" ", "_")
                     if not nome_final_pdf.lower().endswith(".pdf"):
                         nome_final_pdf += ".pdf"
                     
                     token_do_lote = secrets.token_hex(4)
-                    # O arquivo agora é guardado com o nome exato inserido no input
                     nome_salvo_local = f"{token_do_lote}_{nome_final_pdf}"
                     
                     caminho_final = os.path.join(PASTA_LOCAL_MINUTAS, nome_salvo_local)
@@ -317,143 +312,4 @@ if st.session_state.autenticado:
                 st.info("Nenhum dado na planilha ou aguardando sincronização.")
 
 # --- CONTEÚDO: ASSINANTE ---
-with aba2:
-    st.title("🖋️ Assinatura Eletrônica de Documentos")
-    
-    assinante_atual = None
-    if token_acesso and lista_banco:
-        for a in lista_banco:
-            if str(a.get("token")) == str(token_acesso):
-                assinante_atual = a
-                break
-
-    st.subheader("1. Identificação do Assinante")
-    if assinante_atual:
-        st.success(f"Documento localizado para: {assinante_atual['nome']}")
-        
-        nome_do_pdf = assinante_atual.get("link_minuta")
-        caminho_completo_pdf = os.path.join(PASTA_LOCAL_MINUTAS, nome_do_pdf) if nome_do_pdf else ""
-        
-        # AJUSTE DE SEGURANÇA: O assinante só vê o botão de download se ainda NÃO tiver assinado
-        if assinante_atual["status"] == "Pendente":
-            if nome_do_pdf and os.path.exists(caminho_completo_pdf):
-                st.markdown(f'### 📄 2. Leitura Obrigatória')
-                
-                with open(caminho_completo_pdf, "rb") as f_pdf:
-                    bytes_pdf = f_pdf.read()
-                
-                st.download_button(
-                    label="👉 Clique para baixar e ler a Minuta do Contrato (PDF)",
-                    data=bytes_pdf,
-                    file_name=nome_do_pdf.split("_", 1)[-1],
-                    mime="application/pdf",
-                    type="primary"
-                )
-                st.caption("Verifique todas as cláusulas do arquivo oficial baixado antes de prosseguir para a assinatura abaixo.")
-            else:
-                st.warning("O arquivo PDF desta minuta não foi localizado no servidor.")
-    else:
-        if token_acesso:
-            st.error("Token inválido ou expirado.")
-        else:
-            st.warning("Aguardando link de acesso exclusivo enviado por e-mail.")
-
-    if assinante_atual and assinante_atual["status"] == "Pendente":
-        st.markdown("### 📝 3. Validação Jurídica")
-        c_nome = st.text_input("Confirmar Nome Completo", value=assinante_atual["nome"] if assinante_atual else "")
-        c_cpf = st.text_input("Digitar CPF para assinatura")
-        
-        if st.button("✍️ Confirmar Assinatura", type="primary"):
-            if not lista_banco:
-                st.error("Erro: Banco de dados vazio.")
-            elif not c_nome or not c_cpf:
-                st.error("Erro: Preencha todos os campos.")
-            else:
-                encontrado = False
-                for a in lista_banco:
-                    valido = str(a.get("token")) == str(token_acesso) and a.get("status") == "Pendente"
-                        
-                    if valido:
-                        from datetime import datetime
-                        data_formatada = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-                        
-                        sucesso_pdf = anexar_pagina_assinatura(
-                            caminho_pdf_original=caminho_completo_pdf,
-                            hash_original=a.get("hash_doc", "Não informado"),
-                            nome_assinante=c_nome,
-                            email_assinante=a.get("email", ""),
-                            cpf_assinante=c_cpf,
-                            data_assinatura=data_formatada
-                        )
-                        
-                        if sucesso_pdf:
-                            a["status"] = "Assinado"
-                            a["cpf"] = c_cpf
-                            a["data"] = data_formatada
-                            encontrado = True
-                        break
-                
-                if not encontrado:
-                    st.error("Erro: Falha ao processar assinatura ou o lote já foi assinado.")
-                else:
-                    salvar_dados_planilha(lista_banco)
-                    st.success("Sua assinatura foi validada e registrada com sucesso!")
-                    st.balloons()
-                    st.rerun()
-    elif assinante_atual and assinante_atual["status"] == "Assinado":
-        st.info("Este documento já foi devidamente assinado e validado eletronicamente. Obrigado!")
-
-# --- CONTEÚDO: HISTÓRICO ---
-if st.session_state.autenticado:
-    with aba3:
-        st.subheader("Histórico de Assinaturas (Realtime)")
-        if lista_banco:
-            st.dataframe(pd.DataFrame(lista_banco), width="stretch")
-
-# --- CONTEÚDO: NOVA ABA 4 EXCLUSIVA DO CRIADOR (DOWNLOADS DOS CONCLUÍDOS) ---
-if st.session_state.autenticado:
-    with aba4:
-        st.subheader("📂 Download de Documentos Completamente Assinados")
-        st.caption("Esta área é restrita e exibe apenas os arquivos que já receberam a folha de protocolo.")
-        
-        if lista_banco:
-            # Filtra apenas os registros com status "Assinado"
-            assinados = [reg for reg in lista_banco if reg.get("status") == "Assinado"]
-            
-            if assinados:
-                # Agrupa por arquivo único para não repetir botões se houver múltiplos assinantes no mesmo lote
-                arquivos_processados = set()
-                
-                for doc_assinado in assinados:
-                    nome_arquivo_sistema = doc_assinado.get("link_minuta")
-                    
-                    if nome_arquivo_sistema and nome_arquivo_sistema not in arquivos_processados:
-                        arquivos_processados.add(nome_arquivo_sistema)
-                        caminho_pdf_final = os.path.join(PASTA_LOCAL_MINUTAS, nome_arquivo_sistema)
-                        
-                        # Nome legível sem o token inicial para exibição na tela
-                        nome_exibicao_limpo = nome_arquivo_sistema.split("_", 1)[-1]
-                        
-                        col_nome, col_btn = st.columns([3, 1])
-                        with col_nome:
-                            st.markdown(f"📄 **{nome_exibicao_limpo}**")
-                            st.caption(f"Assinado por: {doc_assinado.get('nome')} ({doc_assinado.get('data')})")
-                        
-                        with col_btn:
-                            if os.path.exists(caminho_pdf_final):
-                                with open(caminho_pdf_final, "rb") as f_down:
-                                    bytes_down = f_down.read()
-                                st.download_button(
-                                    label="⬇️ Baixar PDF Final",
-                                    data=bytes_down,
-                                    file_name=nome_exibicao_limpo,
-                                    mime="application/pdf",
-                                    key=f"down_{nome_arquivo_sistema}"
-                                )
-                            else:
-                                st.error("Arquivo não localizado")
-                        st.divider()
-            else:
-                st.info("Nenhum documento assinado foi registrado até o momento.")
-        else:
-            st.info("Aguardando sincronização de dados.")
+with
