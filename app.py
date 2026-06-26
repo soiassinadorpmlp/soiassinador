@@ -8,11 +8,9 @@ import pandas as pd
 from gspread_dataframe import set_with_dataframe
 import gspread
 from google.oauth2.service_account import Credentials
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseUpload
 import base64
 import json
-import io
+import os
 
 # --- CONFIGURAÇÃO DA INTERFACE ---
 st.set_page_config(
@@ -25,14 +23,15 @@ st.set_page_config(
 GMAIL_PADRAO = "soiassinadorpmlp@gmail.com"
 LINK_SISTEMA_PADRAO = "https://engenhariapmlp.streamlit.app"
 SPREADSHEET_ID = "13Vyiy-XBzR969JPTMJlWK3gpKcLRi9ftVRcO3kinoWE"
-PASTA_DRIVE_ID = "1fDD1nh2CrgveEg5NiIPeUjnK4RyWHiot"
 
-# --- CONEXÃO SEGURA VIA BASE64 (SHEETS E DRIVE) ---
+# Garante que a pasta local para guardar as minutas exista no servidor do Streamlit
+PASTA_LOCAL_MINUTAS = "minutas"
+if not os.path.exists(PASTA_LOCAL_MINUTAS):
+    os.makedirs(PASTA_LOCAL_MINUTAS)
+
+# --- CONEXÃO SEGURA VIA BASE64 (APENAS PARA O SHEETS AGORA) ---
 def obter_credenciais():
-    escopos = [
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive"
-    ]
+    escopos = ["https://www.googleapis.com/auth/spreadsheets"]
     b64_data = st.secrets["GOOGLE_CREDS_BASE64"]
     json_string = base64.b64decode(b64_data).decode('utf-8')
     creds_dict = json.loads(json_string)
@@ -46,49 +45,20 @@ def obter_cliente_sheets():
         st.error(f"Erro crítico nas credenciais do Sheets: {e}")
         return None
 
-def obter_servico_drive():
+# --- NOVA FUNÇÃO: SALVA O PDF NO PRÓPRIO STREAMLIT ---
+def salvar_pdf_localmente(nome_arquivo, conteudo_bytes, token_lote):
     try:
-        creds = obter_credenciais()
-        return build('drive', 'v3', credentials=creds)
+        # Criamos um nome único usando o token para evitar que um arquivo mude o do outro
+        nome_seguro = f"{token_lote}_{nome_arquivo}"
+        caminho_final = os.path.join(PASTA_LOCAL_MINUTAS, nome_seguro)
+        
+        with open(caminho_final, "wb") as f:
+            f.write(conteudo_bytes)
+            
+        # Retorna o nome do arquivo para usarmos no download depois
+        return nome_seguro
     except Exception as e:
-        st.error(f"Erro crítico nas credenciais do Drive: {e}")
-        return None
-
-# --- FUNÇÕES DE FAZER UPLOAD DE MINUTA PRO DRIVE ---
-def upload_pdf_para_drive(nome_arquivo, conteudo_bytes):
-    try:
-        service = obter_servico_drive()
-        if not service:
-            return None
-        
-        # Metadados estritos para forçar o vínculo com a pasta pai
-        metadata = {
-            'name': nome_arquivo,
-            'parents': [PASTA_DRIVE_ID],
-            'keepRevisionForever': False
-        }
-        
-        fh = io.BytesIO(conteudo_bytes)
-        media = MediaIoBaseUpload(fh, mimetype='application/pdf', resumable=False) # Mudado para False para evitar sessões temporárias de cota
-        
-        # CORREÇÃO DEFINITIVA: supportsAllDrives=True com o media_body correto
-        arquivo_criado = service.files().create(
-            body=metadata,
-            media_body=media,
-            fields='id, webViewLink',
-            supportsAllDrives=True
-        ).execute()
-        
-        # Garante permissão de leitura para qualquer um com o link ver o PDF
-        service.permissions().create(
-            fileId=arquivo_criado.get('id'),
-            body={'type': 'anyone', 'role': 'reader'},
-            supportsAllDrives=True
-        ).execute()
-        
-        return arquivo_criado.get('webViewLink')
-    except Exception as e:
-        st.error(f"Erro ao enviar PDF para o Google Drive: {e}")
+        st.error(f"Erro ao salvar arquivo no servidor local: {e}")
         return None
 
 # --- INTERAÇÃO COM PLANILHA ---
@@ -184,12 +154,14 @@ if st.session_state.autenticado:
                 if m_arq is not None and m_lote.strip() and m_senha:
                     pdf_conteudo = m_arq.getvalue()
                     
-                    # Faz o upload da minuta para o Google Drive e pega o link público
-                    st.info("Fazendo upload seguro da minuta para o Google Drive...")
-                    link_drive_pdf = upload_pdf_para_drive(m_arq.name, pdf_conteudo)
+                    st.info("Processando e salvando a minuta com segurança...")
                     
-                    if not link_drive_pdf:
-                        st.error("Falha ao salvar o arquivo no Drive. Verifique as permissões da pasta.")
+                    # Geramos um identificador único para este lote de arquivos
+                    token_do_lote = secrets.token_hex(4)
+                    nome_salvo_local = salvar_pdf_localmente(m_arq.name, pdf_conteudo, token_do_lote)
+                    
+                    if not nome_salvo_local:
+                        st.error("Falha ao salvar o arquivo no servidor do sistema.")
                     else:
                         hasher = hashlib.sha256()
                         hasher.update(pdf_conteudo)
@@ -217,7 +189,7 @@ if st.session_state.autenticado:
                                     "status": "Pendente",
                                     "data": "-",
                                     "hash_doc": hash_seguranca,
-                                    "link_minuta": link_drive_pdf
+                                    "link_minuta": nome_salvo_local # Agora guardamos o nome do arquivo interno
                                 })
                                 
                                 link_personalizado = f"{base_url}?token={token}"
@@ -253,11 +225,28 @@ with aba2:
     if assinante_atual:
         st.success(f"Documento localizado para: {assinante_atual['nome']}")
         
-        # BOTÃO EXTRAÍDO DO DRIVE: VISUALIZAR MINUTA
-        if assinante_atual.get("link_minuta"):
+        # AGORA EXTRAÍMOS O ARQUIVO SALVO INTERNAMENTE NO SISTEMA
+        nome_do_pdf = assinante_atual.get("link_minuta")
+        caminho_completo_pdf = os.path.join(PASTA_LOCAL_MINUTAS, nome_do_pdf) if nome_do_pdf else ""
+        
+        if nome_do_pdf and os.path.exists(caminho_completo_pdf):
             st.markdown(f'### 📄 2. Leitura Obrigatória')
-            st.link_button("👉 Clique para abrir e ler a Minuta do Contrato (PDF)", assinante_atual["link_minuta"], type="primary")
-            st.caption("Verifique todas as cláusulas do arquivo oficial antes de prosseguir para a assinatura abaixo.")
+            
+            # Lemos os bytes do arquivo interno para disponibilizar no botão oficial do Streamlit
+            with open(caminho_completo_pdf, "rb") as f_pdf:
+                bytes_pdf = f_pdf.read()
+            
+            st.download_button(
+                label="👉 Clique para baixar e ler a Minuta do Contrato (PDF)",
+                data=bytes_pdf,
+                file_name=nome_do_pdf.split("_", 1)[-1], # Remove o token do nome visível do arquivo
+                mime="application/pdf",
+                type="primary"
+            )
+            st.caption("Verifique todas as cláusulas do arquivo oficial baixado antes de prosseguir para a assinatura abaixo.")
+        else:
+            if token_acesso:
+                st.warning("O arquivo PDF desta minuta não foi localizado no servidor local.")
     else:
         if token_acesso:
             st.error("Token inválido ou expirado.")
