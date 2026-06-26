@@ -55,17 +55,32 @@ def obter_cliente_sheets():
         return None
 
 # --- FUNÇÃO MOTORA: GERA O PROTOCOLO ATUALIZADO ---
-def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante, email_assinante, cpf_assinante, data_assinatura, setor_emissor, banco_completo):
+def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante, email_assinante, cpf_assinante, data_assinatura, setor_emissor, banco_completo, link_minuta_atual):
     caminho_protocolo_temp = caminho_pdf_original.replace(".pdf", "_protocolo_temp.pdf")
     
     try:
         nome_exibicao_doc = caminho_pdf_original.split(os.sep)[-1].split("_", 1)[-1]
 
-        # Busca todos os participantes vinculados a este mesmo documento
-        co_assinantes = [reg for reg in banco_completo if str(reg.get("hash_doc")) == str(hash_original)]
+        # CORREÇÃO CRÍTICA: Filtra rigorosamente apenas quem pertence a ESTE arquivo/lote específico
+        co_assinantes = [reg for reg in banco_completo if str(reg.get("link_minuta")) == str(link_minuta_atual)]
         
-        # Define a data de disponibilização baseada no primeiro registro do lote encontrado
+        # Define a data de disponibilização baseada no lote atual
         data_disponibilizacao = co_assinantes[0].get("data_criacao", "-") if co_assinantes else "-"
+
+        # Determina o STATUS Geral do Documento avaliando o lote específico
+        algum_pendente = False
+        for co in co_assinantes:
+            # Desconsidera o assinante atual da checagem de pendência, pois ele está assinando agora
+            if str(co.get("token")) == str(st.query_params.get("token")):
+                continue
+            if co.get("status") != "Assinado":
+                algum_pendente = True
+                break
+
+        if algum_pendente:
+            status_geral_html = "<font color='#C53030'><b>Pendente de assinaturas</b></font>"
+        else:
+            status_geral_html = "<font color='#2F855A'><b>Concluído e Validado</b></font>"
 
         doc = SimpleDocTemplate(caminho_protocolo_temp, pagesize=letter, leftMargin=45, rightMargin=45, topMargin=45, bottomMargin=45)
         story = []
@@ -115,14 +130,16 @@ def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante
         
         texto_intro = "Este documento foi processado eletronicamente. A autenticidade e a integridade do arquivo podem ser conferidas por meio do identificador de segurança posicionado no rodapé desta página."
         story.append(Paragraph(texto_intro, style_texto))
-        story.append(Spacer(1, 8))
+        story.append(Spacer(1, 4))
         
-        # --- TABELA 1: CABEÇALHO DO DOCUMENTO ---
+        # --- TABELA 1: INFORMAÇÕES DE EMISSÃO (COM DADOS INSTITUCIONAIS REORGANIZADOS) ---
         story.append(Paragraph("Informações de Emissão", style_secao))
         
         dados_doc = [
             [Paragraph(f"<b>Documento:</b> {nome_exibicao_doc}", style_texto), 
-             Paragraph(f"<b>Disponibilizado em:</b> {data_disponibilizacao}", style_texto)]
+             Paragraph(f"<b>Disponibilizado em:</b> {data_disponibilizacao}", style_texto)],
+            [Paragraph(f"<b>Setor Responsável:</b> {setor_emissor} / Prefeitura Municipal de Lençóis Paulista", style_texto),
+             Paragraph(f"<b>STATUS:</b> {status_geral_html}", style_texto)]
         ]
         
         t_doc = Table(dados_doc, colWidths=[310, 210])
@@ -137,17 +154,14 @@ def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante
         ]))
         story.append(t_doc)
         
-        # --- TABELA 2: DADOS DA ASSINATURA ATUAL ---
+        # --- TABELA 2: DADOS DA ASSINATURA ATUAL (LIMPA E DIRETA) ---
         story.append(Paragraph("Assinatura Processada Neste Momento", style_secao))
         
         texto_detalhes = f"""
         <b>Assinante Atual:</b> {nome_assinante}<br/>
         <b>E-mail:</b> {email_assinante}<br/>
         <b>Documento (CPF):</b> {cpf_assinante}<br/>
-        <b>Data / Hora da Ação (Brasília):</b> {data_assinatura}<br/>
-        <b>Órgão / Setor Responsável:</b> {setor_emissor}<br/>
-        <b>Validação Institucional:</b> Prefeitura Municipal de Lençóis Paulista<br/>
-        <b>Status:</b> <font color='#2F855A'><b>CONCLUÍDO E VALIDADO</b></font>
+        <b>Data / Hora da Ação (Brasília):</b> {data_assinatura}
         """
         
         t_ass = Table([[Paragraph(texto_detalhes, style_texto)]], colWidths=[520])
@@ -162,7 +176,7 @@ def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante
         ]))
         story.append(t_ass)
         
-        # --- TABELA 3: FLUXO E STATUS DOS DEMAIS ASSINANTES DO LOTE ---
+        # --- TABELA 3: FLUXO E STATUS DOS INTEGRANTES DO LOTE ---
         story.append(Paragraph("Fluxo de Assinaturas do Documento", style_secao))
         
         dados_fluxo = [[Paragraph("<b>Nome do Integrante</b>", style_texto), 
@@ -194,7 +208,7 @@ def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante
             ('RIGHTPADDING', (0,0), (-1,-1), 8),
         ]))
         story.append(t_fluxo)
-        story.append(Spacer(1, 25))
+        story.append(Spacer(1, 20))
         
         # --- TABELA 4: RODAPÉ COM IDENTIFICADOR HASH ---
         story.append(Paragraph("<b>Identificador de Validação Criptográfica (Hash SHA-256):</b>", style_texto))
@@ -498,7 +512,8 @@ with aba2:
                             cpf_assinante=c_cpf,
                             data_assinatura=data_formatada,
                             setor_emissor=a.get("setor", "Não Informado"),
-                            banco_completo=lista_banco
+                            banco_completo=lista_banco,
+                            link_minuta_atual=nome_do_pdf
                         )
                         
                         if sucesso_pdf:
@@ -508,7 +523,6 @@ with aba2:
                             encontrado = True
                         break
                 
-                # CORRIGIDO AQUI: Alterado de 'not encontrar' para 'not encontrado'
                 if not encontrado:
                     st.error("Erro: Falha ao processar assinatura ou o lote já foi assinado.")
                 else:
@@ -563,7 +577,7 @@ if st.session_state.autenticado:
                                     key=f"down_{nome_arquivo_sistema}"
                                 )
                             else:
-                                st.error("Arquivo não localizado")
+                                .st.error("Arquivo não localizado")
                         
                         with col_del:
                             if st.button("❌ Deletar do Sistema", key=f"del_{nome_arquivo_sistema}", type="secondary"):
