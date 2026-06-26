@@ -178,15 +178,16 @@ def salvar_dados_planilha(lista_assinantes):
     except Exception as e:
         st.error(f"Erro ao salvar dados no sistema: {e}")
 
-# --- MOTOR DE DISPARO DE E-MAIL ---
-def enviar_email_individual(meu_email, minha_senha, destino, nome, link):
+# --- MOTOR DE DISPARO DE E-MAIL (TEXTO ATUALIZADO E MELHORADO) ---
+def enviar_email_individual(meu_email, minha_senha, destino, nome, link, orgao_setor, nome_documento):
     try:
         msg = MIMEMultipart()
         msg['From'] = meu_email
         msg['To'] = destino
-        msg['Subject'] = "Assinatura Digital Pendente"
+        msg['Subject'] = f"Assinatura Digital Pendente - {nome_documento}"
         
-        corpo = f"Olá, {nome}.\n\nVocê foi incluído para assinar um documento oficial da engenharia.\n\nAcesse pelo link seguro abaixo para ler a minuta e assinar:\n{link}\n\nDigite seu NOME e CPF para validar. Não precisa de login."
+        corpo = f"Olá, {nome}.\n\nVocê foi incluído para assinar um documento da {orgao_setor}, chamado {nome_documento}.\n\nAcesse pelo link seguro abaixo para ler a minuta e assinar:\n{link}\n\nPara validar a assinatura, basta digitar seu nome completo e CPF. Não é necessário realizar login."
+        
         msg.attach(MIMEText(corpo, 'plain', 'utf-8'))
         servidor = smtplib.SMTP_SSL("smtp.gmail.com", 465)
         servidor.login(meu_email, minha_senha)
@@ -225,11 +226,9 @@ if token_acesso:
 lista_banco = ler_dados_planilha()
 
 # --- CRIAÇÃO ESTÁVEL DAS ABAS ---
-# Se for Admin, mostra as 4 abas. Se for apenas Assinante externo, mostra apenas a aba de Assinatura.
 if st.session_state.autenticado:
     aba1, aba2, aba3, aba4 = st.tabs(["Criador", "Assinante", "Histórico", "📂 Arquivos Concluídos"])
 else:
-    # Criamos uma estrutura limpa sem risco de desestruturação nula
     abas_usuario = st.tabs(["Assinante"])
     aba2 = abas_usuario[0]
 
@@ -242,13 +241,15 @@ if st.session_state.autenticado:
             m_senha = st.text_input("Senha App", type="password")
             m_link = st.text_input("Link App", value=LINK_SISTEMA_PADRAO)
             
+            # --- CAMPOS DE IDENTIFICAÇÃO DO DOCUMENTO ---
+            m_orgao = st.text_input("Nome do Órgão / Setor responsável (Ex: Secretaria de Obras)")
             m_nome_doc = st.text_input("Nome de Identificação do Arquivo (Ex: Contrato_Locacao_01)")
             
             m_arq = st.file_uploader("Contrato PDF (Minuta)", type=["pdf"])
             m_lote = st.text_area("Lista (Nome; Email)")
             
             if st.button("🚀 Enviar Lote", type="primary"):
-                if m_arq is not None and m_lote.strip() and m_senha and m_nome_doc.strip():
+                if m_arq is not None and m_lote.strip() and m_senha and m_nome_doc.strip() and m_orgao.strip():
                     pdf_conteudo = m_arq.getvalue()
                     
                     st.info("Processando e salvando a minuta com segurança...")
@@ -297,11 +298,20 @@ if st.session_state.autenticado:
                                     "status": "Pendente",
                                     "data": "-",
                                     "hash_doc": hash_seguranca,
-                                    "link_minuta": nome_salvo_local
+                                    "link_minuta": nome_salvo_local,
+                                    "setor": m_orgao.strip()
                                 })
                                 
                                 link_personalizado = f"{base_url}?token={token}"
-                                enviar_email_individual(m_email, m_senha, email_limpo, nome_limpo, link_personalizado)
+                                enviar_email_individual(
+                                    meu_email=m_email, 
+                                    minha_senha=m_senha, 
+                                    destino=email_limpo, 
+                                    nome=nome_limpo, 
+                                    link=link_personalizado,
+                                    orgao_setor=m_orgao.strip(),
+                                    nome_documento=m_nome_doc.strip()
+                                )
                             progresso.progress((idx + 1) / total)
                         
                         lista_updated = lista_banco + novos_assinantes if lista_banco else novos_assinantes
@@ -309,7 +319,7 @@ if st.session_state.autenticado:
                         st.success("Lote enviado e gravado com sucesso!")
                         st.rerun()
                 else:
-                    st.error("Erro: Preencha TODOS os campos, incluindo o nome do arquivo, minuta, lista e senha.")
+                    st.error("Erro: Preencha TODOS os campos (incluindo o Órgão/Setor, Nome do arquivo, Minuta, Lista e Senha).")
         with c2:
             st.subheader("📋 Assinaturas Pendentes")
             if lista_banco:
@@ -320,11 +330,13 @@ if st.session_state.autenticado:
                     
                     if not df_pendente.empty:
                         df_pendente["Arquivo"] = df_pendente["link_minuta"].apply(lambda x: str(x).split("_", 1)[-1] if "_" in str(x) else x)
-                        colunas_ordenadas = ["Arquivo", "nome", "email", "status"]
+                        
+                        # Exibe também o Setor na tabela se a coluna existir
+                        colunas_ordenadas = ["Arquivo", "setor", "nome", "email", "status"]
                         colunas_existentes = [c for c in colunas_ordenadas if c in df_pendente.columns]
                         
                         st.dataframe(
-                            df_pendente[colunas_existentes].rename(columns={"nome": "Nome", "email": "E-mail", "status": "Status"}),
+                            df_pendente[colunas_existentes].rename(columns={"setor": "Órgão/Setor", "nome": "Nome", "email": "E-mail", "status": "Status"}),
                             width="stretch",
                             hide_index=True
                         )
