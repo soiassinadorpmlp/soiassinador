@@ -12,6 +12,10 @@ import base64
 import json
 import os
 
+# --- BIBLIOTECAS ADICIONADAS PARA QR CODE ---
+import qrcode
+from reportlab.platypus import Image
+
 # --- CONTROLE DE FUSO HORÁRIO ---
 from datetime import datetime, timedelta, timezone
 
@@ -54,84 +58,131 @@ def obter_cliente_sheets():
         st.error(f"Erro crítico nas credenciais do Sheets: {e}")
         return None
 
-# --- FUNÇÃO MOTORA: GERA A PÁGINA DE ASSINATURA E JUNTA AO PDF ORIGINAL ---
+# --- FUNÇÃO MOTORA: GERA O PROTOCOLO COM QR CODE E JUNTA AO PDF ---
 def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante, email_assinante, cpf_assinante, data_assinatura):
+    caminho_qrcode_temp = caminho_pdf_original.replace(".pdf", "_qr_temp.png")
+    caminho_protocolo_temp = caminho_pdf_original.replace(".pdf", "_protocolo_temp.pdf")
+    
     try:
-        caminho_protocolo_temp = caminho_pdf_original.replace(".pdf", "_protocolo_temp.pdf")
-        
-        doc = SimpleDocTemplate(caminho_protocolo_temp, pagesize=letter, leftMargin=36, rightMargin=36, topMargin=36, bottomMargin=36)
+        # 1. GERAÇÃO DA IMAGEM DO QR CODE
+        # O QR Code aponta para a URL do sistema contendo o hash do arquivo para futura verificação
+        url_verificacao = f"{LINK_SISTEMA_PADRAO}/?validar_hash={hash_original}"
+        qr = qrcode.QRCode(version=1, box_size=10, border=1)
+        qr.add_data(url_verificacao)
+        qr.make(fit=True)
+        img_qr = qr.make_image(fill_color="black", back_color="white")
+        img_qr.save(caminho_qrcode_temp)
+
+        # 2. CONFIGURAÇÃO DO DOCUMENTO DO PROTOCOLO
+        doc = SimpleDocTemplate(caminho_protocolo_temp, pagesize=letter, leftMargin=45, rightMargin=45, topMargin=45, bottomMargin=45)
         story = []
         
         styles = getSampleStyleSheet()
         
+        # --- ESTILOS CUSTOMIZADOS ---
         style_titulo = ParagraphStyle(
             'TituloProtocolo',
             parent=styles['Normal'],
             fontName='Helvetica-Bold',
-            fontSize=22,
+            fontSize=18,
             textColor=colors.HexColor("#1A365D"),
-            spaceAfter=12
+            spaceAfter=15,
+            alignment=1
         )
         
-        style_label = ParagraphStyle(
-            'LabelHash',
+        style_secao = ParagraphStyle(
+            'SubSecao',
+            parent=styles['Normal'],
+            fontName='Helvetica-Bold',
+            fontSize=12,
+            textColor=colors.HexColor("#2C5282"),
+            spaceBefore=12,
+            spaceAfter=6
+        )
+        
+        style_texto = ParagraphStyle(
+            'TextoComum',
             parent=styles['Normal'],
             fontName='Helvetica',
-            fontSize=11,
-            textColor=colors.HexColor("#4A5568"),
-            spaceAfter=2
+            fontSize=10,
+            leading=14,
+            textColor=colors.HexColor("#2D3748")
         )
-        
+
         style_hash = ParagraphStyle(
-            'HashSHA',
+            'TextoHash',
             parent=styles['Normal'],
-            fontName='Helvetica-Oblique',
-            fontSize=11,
-            textColor=colors.HexColor("#718096"),
-            spaceAfter=15
+            fontName='Courier',
+            fontSize=9,
+            leading=11,
+            textColor=colors.HexColor("#4A5568")
         )
         
-        story.append(Paragraph("PROTOCOLO DE ASSINATURAS DIGITAIS", style_titulo))
-        story.append(Paragraph("Identificador Único (Hash SHA-256) do Original:", style_label))
-        story.append(Paragraph(str(hash_original), style_hash))
+        # --- MONTAGEM DO CORPO DO PDF ---
+        story.append(Paragraph("PROTOCOLO DE ASSINATURA ELETRÔNICA", style_titulo))
         
-        t_linha = Table([[""]], colWidths=[540], rowHeights=[1])
-        t_linha.setStyle(TableStyle([
-            ('LINEBELOW', (0,0), (-1,-1), 1, colors.HexColor("#CBD5E0")),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 0),
-            ('TOPPADDING', (0,0), (-1,-1), 0)
+        texto_intro = "Este documento foi assinado eletronicamente de forma indissociável. A autenticidade e integridade desta cópia impressa ou digital podem ser validadas apontando a câmera do celular para o QR Code ou conferindo o identificador SHA-256."
+        story.append(Paragraph(texto_intro, style_texto))
+        story.append(Spacer(1, 10))
+        
+        # --- TABELA 1: DADOS DO DOCUMENTO ---
+        story.append(Paragraph("Dados do Documento Original", style_secao))
+        nome_exibicao_doc = caminho_pdf_original.split(os.sep)[-1].split("_", 1)[-1]
+        
+        dados_doc = [
+            [Paragraph("<b>Nome do Arquivo:</b>", style_texto), Paragraph(nome_exibicao_doc, style_texto)],
+            [Paragraph("<b>Identificador (Hash SHA-256):</b>", style_texto), Paragraph(str(hash_original), style_hash)]
+        ]
+        
+        t_doc = Table(dados_doc, colWidths=[140, 380])
+        t_doc.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#F7FAFC")),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#E2E8F0")),
+            ('VALIGN', (0,0), (-1,-1), 'TOP'),
+            ('TOPPADDING', (0,0), (-1,-1), 8),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 8),
+            ('LEFTPADDING', (0,0), (-1,-1), 10),
+            ('RIGHTPADDING', (0,0), (-1,-1), 10),
         ]))
-        story.append(t_linha)
-        story.append(Spacer(1, 25))
+        story.append(t_doc)
+        story.append(Spacer(1, 15))
         
-        texto_bloco = f"""
-        <b>Assinante: {nome_assinante}</b><br/><br/>
-        <font color="#4A5568">E-mail:</font> {email_assinante}<br/><br/>
-        <font color="#2F855A"><b>STATUS: ASSINADO | CPF: {cpf_assinante} | Data: {data_assinatura}</b></font>
+        # --- TABELA 2: HISTÓRICO DE ASSINATURAS + QR CODE LADO A LADO ---
+        story.append(Paragraph("Histórico de Assinaturas", style_secao))
+        
+        texto_detalhes = f"""
+        <b>Assinante:</b> {nome_assinante}<br/>
+        <b>E-mail:</b> {email_assinante}<br/>
+        <b>Documento (CPF):</b> {cpf_assinante}<br/>
+        <b>Data / Hora (Brasília):</b> {data_assinatura}<br/>
+        <b>Status:</b> <font color='#2F855A'><b>CONCLUÍDO E VALIDADO</b></font>
         """
         
-        style_bloco = ParagraphStyle(
-            'BlocoAssinante',
-            parent=styles['Normal'],
-            fontName='Helvetica',
-            fontSize=12,
-            leading=14
-        )
+        # Carrega a imagem do QR Code gerada temporariamente definindo tamanho fixo (90x90 pt)
+        img_xml = Image(caminho_qrcode_temp, width=90, height=90)
         
-        p_bloco = Paragraph(texto_bloco, style_bloco)
+        # Coluna 1: Dados textuais, Coluna 2: Imagem do QR Code
+        dados_assinatura = [
+            [Paragraph(texto_detalhes, style_texto), img_xml]
+        ]
         
-        t_bloco = Table([[p_bloco]], colWidths=[540])
-        t_bloco.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#F7FAFC")),
-            ('TOPPADDING', (0,0), (-1,-1), 14),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 14),
-            ('LEFTPADDING', (0,0), (-1,-1), 14),
-            ('RIGHTPADDING', (0,0), (-1,-1), 14),
+        t_ass = Table(dados_assinatura, colWidths=[410, 110])
+        t_ass.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#EDF2F7")),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#CBD5E0")),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('ALIGN', (1,0), (1,0), 'CENTER'), # Centraliza o QR Code na célula direita
+            ('TOPPADDING', (0,0), (-1,-1), 12),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 12),
+            ('LEFTPADDING', (0,0), (-1,-1), 12),
+            ('RIGHTPADDING', (0,0), (-1,-1), 12),
         ]))
-        story.append(t_bloco)
+        story.append(t_ass)
         
+        # Constrói o PDF do protocolo
         doc.build(story)
         
+        # 3. UNIÃO DOS ARQUIVOS PDF
         reader_original = PdfReader(caminho_pdf_original)
         reader_protocolo = PdfReader(caminho_protocolo_temp)
         writer = PdfWriter()
@@ -144,12 +195,20 @@ def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante
         with open(caminho_pdf_original, "wb") as f_saida:
             writer.write(f_saida)
             
+        # Limpeza segura de arquivos temporários do sistema
         if os.path.exists(caminho_protocolo_temp):
             os.remove(caminho_protocolo_temp)
+        if os.path.exists(caminho_qrcode_temp):
+            os.remove(caminho_qrcode_temp)
             
         return True
     except Exception as e:
         st.error(f"Erro técnico na junção do protocolo ao PDF: {e}")
+        # Garante a remoção dos arquivos temporários mesmo em caso de falha
+        if os.path.exists(caminho_protocolo_temp):
+            os.remove(caminho_protocolo_temp)
+        if os.path.exists(caminho_qrcode_temp):
+            os.remove(caminho_qrcode_temp)
         return False
 
 # --- INTERAÇÃO COM PLANILHA ---
@@ -178,7 +237,7 @@ def salvar_dados_planilha(lista_assinantes):
     except Exception as e:
         st.error(f"Erro ao salvar dados no sistema: {e}")
 
-# --- MOTOR DE DISPARO DE E-MAIL (TEXTO ATUALIZADO E MELHORADO) ---
+# --- MOTOR DE DISPARO DE E-MAIL ---
 def enviar_email_individual(meu_email, minha_senha, destino, nome, link, orgao_setor, nome_documento):
     try:
         msg = MIMEMultipart()
@@ -186,7 +245,7 @@ def enviar_email_individual(meu_email, minha_senha, destino, nome, link, orgao_s
         msg['To'] = destino
         msg['Subject'] = f"Assinatura Digital Pendente - {nome_documento}"
         
-        corpo = f"Olá, {nome}.\n\nVocê foi incluído para assinar um documento de {orgao_setor}, chamado {nome_documento}.\n\nAcesse pelo link seguro abaixo para ler a minuta e assinar:\n{link}\n\nPara validar a assinatura, basta digitar seu nome completo e CPF. Não é necessário realizar login."
+        corpo = f"Olá, {nome}.\n\nVocê foi incluído para assinar um documento da {orgao_setor}, chamado {nome_documento}.\n\nAcesse pelo link seguro abaixo para ler a minuta e assinar:\n{link}\n\nPara validar a assinatura, basta digitar seu nome completo e CPF. Não é necessário realizar login."
         
         msg.attach(MIMEText(corpo, 'plain', 'utf-8'))
         servidor = smtplib.SMTP_SSL("smtp.gmail.com", 465)
@@ -241,7 +300,6 @@ if st.session_state.autenticado:
             m_senha = st.text_input("Senha App", type="password")
             m_link = st.text_input("Link App", value=LINK_SISTEMA_PADRAO)
             
-            # --- CAMPOS DE IDENTIFICAÇÃO DO DOCUMENTO ---
             m_orgao = st.text_input("Nome do Órgão / Setor responsável (Ex: Secretaria de Obras)")
             m_nome_doc = st.text_input("Nome de Identificação do Arquivo (Ex: Contrato_Locacao_01)")
             
@@ -330,8 +388,6 @@ if st.session_state.autenticado:
                     
                     if not df_pendente.empty:
                         df_pendente["Arquivo"] = df_pendente["link_minuta"].apply(lambda x: str(x).split("_", 1)[-1] if "_" in str(x) else x)
-                        
-                        # Exibe também o Setor na tabela se a coluna existir
                         colunas_ordenadas = ["Arquivo", "setor", "nome", "email", "status"]
                         colunas_existentes = [c for c in colunas_ordenadas if c in df_pendente.columns]
                         
@@ -477,7 +533,7 @@ if st.session_state.autenticado:
                                     key=f"down_{nome_arquivo_sistema}"
                                 )
                             else:
-                                st.error("Arquivo não localizado")
+                                East.error("Arquivo não localizado")
                         
                         with col_del:
                             if st.button("❌ Deletar do Sistema", key=f"del_{nome_arquivo_sistema}", type="secondary"):
