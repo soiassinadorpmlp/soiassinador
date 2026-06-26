@@ -12,7 +12,7 @@ import base64
 import json
 import os
 
-# --- IMPORTAÇÃO ADICIONAL PARA CONTROLE DE FUSO HORÁRIO ---
+# --- CONTROLE DE FUSO HORÁRIO ---
 from datetime import datetime, timedelta, timezone
 
 # --- BIBLIOTECAS PARA MANIPULAÇÃO DE PDF ---
@@ -265,7 +265,8 @@ if st.session_state.autenticado:
                     except:
                         sucesso_salvamento = False
                     
-                    if not心中_salvamento:
+                    # CORRIGIDO AQUI: Alterado de 'not心中_salvamento' para 'not sucesso_salvamento'
+                    if not sucesso_salvamento:
                         st.error("Falha ao salvar o arquivo no servidor do sistema.")
                     else:
                         hasher = hashlib.sha256()
@@ -371,7 +372,6 @@ with aba2:
                     valido = str(a.get("token")) == str(token_acesso) and a.get("status") == "Pendente"
                         
                     if valido:
-                        # --- CORREÇÃO DO FUSO HORÁRIO (Ajustando para o Horário de Brasília UTC-3) ---
                         fuso_brasilia = timezone(timedelta(hours=-3))
                         data_formatada = datetime.now(fuso_brasilia).strftime("%d/%m/%Y %H:%M:%S")
                         
