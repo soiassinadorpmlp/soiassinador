@@ -69,16 +69,19 @@ def upload_pdf_para_drive(nome_arquivo, conteudo_bytes):
         fh = io.BytesIO(conteudo_bytes)
         media = MediaIoBaseUpload(fh, mimetype='application/pdf', resumable=True)
         
+        # AJUSTE TÉCNICO: supportsAllDrives=True garante que o robô use o espaço da pasta compartilhada
         arquivo_criado = service.files().create(
             body=metadata,
             media_body=media,
-            fields='id, webViewLink'
+            fields='id, webViewLink',
+            supportsAllDrives=True 
         ).execute()
         
         # Garante permissão de leitura para qualquer um com o link ver o PDF
         service.permissions().create(
             fileId=arquivo_criado.get('id'),
-            body={'type': 'anyone', 'role': 'reader'}
+            body={'type': 'anyone', 'role': 'reader'},
+            supportsAllDrives=True
         ).execute()
         
         return arquivo_criado.get('webViewLink')
