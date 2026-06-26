@@ -61,20 +61,22 @@ def upload_pdf_para_drive(nome_arquivo, conteudo_bytes):
         if not service:
             return None
         
+        # Metadados estritos para forçar o vínculo com a pasta pai
         metadata = {
             'name': nome_arquivo,
-            'parents': [PASTA_DRIVE_ID]
+            'parents': [PASTA_DRIVE_ID],
+            'keepRevisionForever': False
         }
         
         fh = io.BytesIO(conteudo_bytes)
-        media = MediaIoBaseUpload(fh, mimetype='application/pdf', resumable=True)
+        media = MediaIoBaseUpload(fh, mimetype='application/pdf', resumable=False) # Mudado para False para evitar sessões temporárias de cota
         
-        # AJUSTE TÉCNICO: supportsAllDrives=True garante que o robô use o espaço da pasta compartilhada
+        # CORREÇÃO DEFINITIVA: supportsAllDrives=True com o media_body correto
         arquivo_criado = service.files().create(
             body=metadata,
             media_body=media,
             fields='id, webViewLink',
-            supportsAllDrives=True 
+            supportsAllDrives=True
         ).execute()
         
         # Garante permissão de leitura para qualquer um com o link ver o PDF
