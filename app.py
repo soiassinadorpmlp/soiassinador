@@ -58,28 +58,18 @@ def obter_cliente_sheets():
         st.error(f"Erro crítico nas credenciais do Sheets: {e}")
         return None
 
-# --- FUNÇÃO MOTORA: GERA O PROTOCOLO COM QR CODE CONTENDO O TEXTO DE VALIDAÇÃO ---
+# --- FUNÇÃO MOTORA: GERA O PROTOCOLO COM QR CODE TEXTUAL ---
 def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante, email_assinante, cpf_assinante, data_assinatura, setor_emissor):
     caminho_qrcode_temp = caminho_pdf_original.replace(".pdf", "_qr_temp.png")
     caminho_protocolo_temp = caminho_pdf_original.replace(".pdf", "_protocolo_temp.pdf")
     
     try:
-        # Extrai o nome limpo do arquivo para colocar no QR Code
         nome_exibicao_doc = caminho_pdf_original.split(os.sep)[-1].split("_", 1)[-1]
 
-        # 1. CONTEÚDO EM TEXTO PURO QUE SERÁ EMBUTIDO NO QR CODE (ATESTADO DE VALIDADE)
-        texto_validacao_qr = (
-            f"--- VALIDAÇÃO DE ASSINATURA ELETRÔNICA ---\n"
-            f"Emissor: {setor_emissor}\n"
-            f"Documento: {nome_exibicao_doc}\n"
-            f"Hash SHA-256: {hash_original}\n"
-            f"Assinante: {nome_assinante}\n"
-            f"CPF: {cpf_assinante}\n"
-            f"Data/Hora: {data_add_assinatura if 'data_add_assinatura' in locals() else data_assinatura}\n"
-            f"STATUS: ASSINADO E INTEGRIDADE GARANTIDA"
-        )
+        # --- TEXTO EXCLUSIVO EMBUTIDO NO QR CODE ---
+        texto_validacao_qr = f"Este arquivo é um documento oficial de {setor_emissor} - Prefeitura Municipal de Lençóis Paulista."
 
-        # Geração da imagem do QR Code com o texto puro
+        # Geração da imagem do QR Code de forma limpa e otimizada para leitura textual
         qr = qrcode.QRCode(version=1, box_size=10, border=1)
         qr.add_data(texto_validacao_qr)
         qr.make(fit=True)
@@ -133,7 +123,7 @@ def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante
         # --- MONTAGEM DO CORPO DO PDF ---
         story.append(Paragraph("PROTOCOLO DE ASSINATURA ELETRÔNICA", style_titulo))
         
-        texto_intro = "Este documento foi assinado eletronicamente de forma indissociável. A autenticidade e a integridade do arquivo podem ser atestadas realizando a leitura do QR Code abaixo, que contém as informações criptográficas e metadados nativos desta assinatura."
+        texto_intro = "Este documento foi assinado eletronicamente de forma indissociável. A autenticidade e a integridade do arquivo podem ser atestadas realizando a leitura do QR Code abaixo, que contém a validação institucional nativa desta assinatura."
         story.append(Paragraph(texto_intro, style_texto))
         story.append(Spacer(1, 10))
         
