@@ -12,10 +12,6 @@ import base64
 import json
 import os
 
-# --- BIBLIOTECAS PARA QR CODE ---
-import qrcode
-from reportlab.platypus import Image
-
 # --- CONTROLE DE FUSO HORÁRIO ---
 from datetime import datetime, timedelta, timezone
 
@@ -58,25 +54,19 @@ def obter_cliente_sheets():
         st.error(f"Erro crítico nas credenciais do Sheets: {e}")
         return None
 
-# --- FUNÇÃO MOTORA: GERA O PROTOCOLO COM QR CODE TEXTUAL ---
-def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante, email_assinante, cpf_assinante, data_assinatura, setor_emissor):
-    caminho_qrcode_temp = caminho_pdf_original.replace(".pdf", "_qr_temp.png")
+# --- FUNÇÃO MOTORA: GERA O PROTOCOLO ATUALIZADO ---
+def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante, email_assinante, cpf_assinante, data_assinatura, setor_emissor, banco_completo):
     caminho_protocolo_temp = caminho_pdf_original.replace(".pdf", "_protocolo_temp.pdf")
     
     try:
         nome_exibicao_doc = caminho_pdf_original.split(os.sep)[-1].split("_", 1)[-1]
 
-        # --- TEXTO EXCLUSIVO EMBUTIDO NO QR CODE ---
-        texto_validacao_qr = f"Este arquivo é um documento oficial de {setor_emissor} - Prefeitura Municipal de Lençóis Paulista."
+        # Busca todos os participantes vinculados a este mesmo documento
+        co_assinantes = [reg for reg in banco_completo if str(reg.get("hash_doc")) == str(hash_original)]
+        
+        # Define a data de disponibilização baseada no primeiro registro do lote encontrado
+        data_disponibilizacao = co_assinantes[0].get("data_criacao", "-") if co_assinantes else "-"
 
-        # Geração da imagem do QR Code de forma limpa e otimizada para leitura textual
-        qr = qrcode.QRCode(version=1, box_size=10, border=1)
-        qr.add_data(texto_validacao_qr)
-        qr.make(fit=True)
-        img_qr = qr.make_image(fill_color="black", back_color="white")
-        img_qr.save(caminho_qrcode_temp)
-
-        # 2. CONFIGURAÇÃO DO DOCUMENTO DO PROTOCOLO
         doc = SimpleDocTemplate(caminho_protocolo_temp, pagesize=letter, leftMargin=45, rightMargin=45, topMargin=45, bottomMargin=45)
         story = []
         
@@ -86,9 +76,9 @@ def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante
             'TituloProtocolo',
             parent=styles['Normal'],
             fontName='Helvetica-Bold',
-            fontSize=18,
+            fontSize=16,
             textColor=colors.HexColor("#1A365D"),
-            spaceAfter=15,
+            spaceAfter=12,
             alignment=1
         )
         
@@ -96,9 +86,9 @@ def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante
             'SubSecao',
             parent=styles['Normal'],
             fontName='Helvetica-Bold',
-            fontSize=12,
+            fontSize=11,
             textColor=colors.HexColor("#2C5282"),
-            spaceBefore=12,
+            spaceBefore=14,
             spaceAfter=6
         )
         
@@ -120,68 +110,109 @@ def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante
             textColor=colors.HexColor("#4A5568")
         )
         
-        # --- MONTAGEM DO CORPO DO PDF ---
+        # --- CORPO DO PDF ---
         story.append(Paragraph("PROTOCOLO DE ASSINATURA ELETRÔNICA", style_titulo))
         
-        texto_intro = "Este documento foi assinado eletronicamente de forma indissociável. A autenticidade e a integridade do arquivo podem ser atestadas realizando a leitura do QR Code abaixo, que contém a validação institucional nativa desta assinatura."
+        texto_intro = "Este documento foi processado eletronicamente. A autenticidade e a integridade do arquivo podem ser conferidas por meio do identificador de segurança posicionado no rodapé desta página."
         story.append(Paragraph(texto_intro, style_texto))
-        story.append(Spacer(1, 10))
+        story.append(Spacer(1, 8))
         
-        # --- TABELA 1: DADOS DO DOCUMENTO ---
-        story.append(Paragraph("Dados do Documento Original", style_secao))
+        # --- TABELA 1: CABEÇALHO DO DOCUMENTO (NOME DO ARQUIVO + DATA DISPONIBILIZAÇÃO) ---
+        story.append(Paragraph("Informações de Emissão", style_secao))
         
         dados_doc = [
-            [Paragraph("<b>Nome do Arquivo:</b>", style_texto), Paragraph(nome_exibicao_doc, style_texto)],
-            [Paragraph("<b>Identificador (Hash SHA-256):</b>", style_texto), Paragraph(str(hash_original), style_hash)]
+            [Paragraph(f"<b>Documento:</b> {nome_exibicao_doc}", style_texto), 
+             Paragraph(f"<b>Disponibilizado em:</b> {data_disponibilizacao}", style_texto)]
         ]
         
-        t_doc = Table(dados_doc, colWidths=[140, 380])
+        t_doc = Table(dados_doc, colWidths=[310, 210])
         t_doc.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#F7FAFC")),
             ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#E2E8F0")),
-            ('VALIGN', (0,0), (-1,-1), 'TOP'),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
             ('TOPPADDING', (0,0), (-1,-1), 8),
             ('BOTTOMPADDING', (0,0), (-1,-1), 8),
             ('LEFTPADDING', (0,0), (-1,-1), 10),
             ('RIGHTPADDING', (0,0), (-1,-1), 10),
         ]))
         story.append(t_doc)
-        story.append(Spacer(1, 15))
         
-        # --- TABELA 2: HISTÓRICO DE ASSINATURAS + QR CODE LADO A LADO ---
-        story.append(Paragraph("Histórico de Assinaturas", style_secao))
+        # --- TABELA 2: DADOS DA ASSINATURA ATUAL ---
+        story.append(Paragraph("Assinatura Processada Neste Momento", style_secao))
         
         texto_detalhes = f"""
-        <b>Assinante:</b> {nome_assinante}<br/>
+        <b>Assinante Atual:</b> {nome_assinante}<br/>
         <b>E-mail:</b> {email_assinante}<br/>
         <b>Documento (CPF):</b> {cpf_assinante}<br/>
-        <b>Data / Hora (Brasília):</b> {data_assinatura}<br/>
-        <b>Órgão / Setor:</b> {setor_emissor}<br/>
+        <b>Data / Hora da Ação (Brasília):</b> {data_assinatura}<br/>
+        <b>Órgão / Setor Responsável:</b> {setor_emissor}<br/>
+        <b>Validação Institucional:</b> Prefeitura Municipal de Lençóis Paulista<br/>
         <b>Status:</b> <font color='#2F855A'><b>CONCLUÍDO E VALIDADO</b></font>
         """
         
-        img_xml = Image(caminho_qrcode_temp, width=95, height=95)
-        
-        dados_assinatura = [
-            [Paragraph(texto_detalhes, style_texto), img_xml]
-        ]
-        
-        t_ass = Table(dados_assinatura, colWidths=[410, 110])
+        t_ass = Table([[Paragraph(texto_detalhes, style_texto)]], colWidths=[520])
         t_ass.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#EDF2F7")),
             ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#CBD5E0")),
             ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-            ('ALIGN', (1,0), (1,0), 'CENTER'),
-            ('TOPPADDING', (0,0), (-1,-1), 12),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 12),
+            ('TOPPADDING', (0,0), (-1,-1), 10),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 10),
             ('LEFTPADDING', (0,0), (-1,-1), 12),
             ('RIGHTPADDING', (0,0), (-1,-1), 12),
         ]))
         story.append(t_ass)
         
+        # --- TABELA 3: FLUXO E STATUS DOS DEMAIS ASSINANTES DO LOTE ---
+        story.append(Paragraph("Fluxo de Assinaturas do Documento", style_secao))
+        
+        dados_fluxo = [[Paragraph("<b>Nome do Integrante</b>", style_texto), 
+                        Paragraph("<b>E-mail</b>", style_texto), 
+                        Paragraph("<b>Data da Assinatura / Status</b>", style_texto)]]
+        
+        for co in co_assinantes:
+            # Se for o próprio usuário assinando agora, força a exibição dos dados atuais
+            if str(co.get("token")) == str(st.query_params.get("token")):
+                status_txt = f"<font color='#2F855A'><b>{data_assinatura}</b></font>"
+            elif co.get("status") == "Assinado":
+                status_txt = f"<font color='#2F855A'><b>{co.get('data')}</b></font>"
+            else:
+                status_txt = "<font color='#C53030'><b>Pendente</b></font>"
+                
+            dados_fluxo.append([
+                Paragraph(str(co.get("nome")), style_texto),
+                Paragraph(str(co.get("email")), style_texto),
+                Paragraph(status_txt, style_texto)
+            ])
+            
+        t_fluxo = Table(dados_fluxo, colWidths=[180, 180, 160])
+        t_fluxo.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#E2E8F0")),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#CBD5E0")),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ('TOPPADDING', (0,0), (-1,-1), 6),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+            ('LEFTPADDING', (0,0), (-1,-1), 8),
+            ('RIGHTPADDING', (0,0), (-1,-1), 8),
+        ]))
+        story.append(t_fluxo)
+        story.append(Spacer(1, 25))
+        
+        # --- TABELA 4: RODAPÉ COM IDENTIFICADOR HASH ---
+        story.append(Paragraph("<b>Identificador de Validação Criptográfica (Hash SHA-256):</b>", style_texto))
+        story.append(Spacer(1, 2))
+        t_hash = Table([[Paragraph(str(hash_original), style_hash)]], colWidths=[520])
+        t_hash.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#F7FAFC")),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#E2E8F0")),
+            ('TOPPADDING', (0,0), (-1,-1), 6),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+            ('LEFTPADDING', (0,0), (-1,-1), 8),
+        ]))
+        story.append(t_hash)
+        
         doc.build(story)
         
-        # 3. UNIÃO DOS ARQUIVOS PDF
+        # UNIÃO DOS ARQUIVOS PDF
         reader_original = PdfReader(caminho_pdf_original)
         reader_protocolo = PdfReader(caminho_protocolo_temp)
         writer = PdfWriter()
@@ -196,16 +227,12 @@ def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante
             
         if os.path.exists(caminho_protocolo_temp):
             os.remove(caminho_protocolo_temp)
-        if os.path.exists(caminho_qrcode_temp):
-            os.remove(caminho_qrcode_temp)
             
         return True
     except Exception as e:
         st.error(f"Erro técnico na junção do protocolo ao PDF: {e}")
         if os.path.exists(caminho_protocolo_temp):
             os.remove(caminho_protocolo_temp)
-        if os.path.exists(caminho_qrcode_temp):
-            os.remove(caminho_qrcode_temp)
         return False
 
 # --- INTERAÇÃO COM PLANILHA ---
@@ -331,6 +358,9 @@ if st.session_state.autenticado:
                         hasher.update(pdf_conteudo)
                         hash_seguranca = hasher.hexdigest()
                         
+                        fuso_br = timezone(timedelta(hours=-3))
+                        data_criacao_lote = datetime.now(fuso_br).strftime("%d/%m/%Y")
+                        
                         linhas = m_lote.strip().split("\n")
                         base_url = m_link.split("?")[0]
                         novos_assinantes = []
@@ -354,7 +384,8 @@ if st.session_state.autenticado:
                                     "data": "-",
                                     "hash_doc": hash_seguranca,
                                     "link_minuta": nome_salvo_local,
-                                    "setor": m_orgao.strip()
+                                    "setor": m_orgao.strip(),
+                                    "data_criacao": data_criacao_lote
                                 })
                                 
                                 link_personalizado = f"{base_url}?token={token}"
@@ -467,7 +498,8 @@ with aba2:
                             email_assinante=a.get("email", ""),
                             cpf_assinante=c_cpf,
                             data_assinatura=data_formatada,
-                            setor_emissor=a.get("setor", "Não Informado")
+                            setor_emissor=a.get("setor", "Não Informado"),
+                            banco_completo=lista_banco
                         )
                         
                         if sucesso_pdf:
@@ -477,7 +509,7 @@ with aba2:
                             encontrado = True
                         break
                 
-                if not encontrado:
+                if not encontrar:
                     st.error("Erro: Falha ao processar assinatura ou o lote já foi assinado.")
                 else:
                     salvar_dados_planilha(lista_banco)
