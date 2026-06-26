@@ -221,14 +221,17 @@ with st.sidebar:
 if token_acesso:
     st.session_state.autenticado = False
 
-# --- DEFINE VISIBILIDADE DAS ABAS ---
+# --- BANCO DE DADOS EM TEMPO REAL ---
+lista_banco = ler_dados_planilha()
+
+# --- CRIAÇÃO ESTÁVEL DAS ABAS ---
+# Se for Admin, mostra as 4 abas. Se for apenas Assinante externo, mostra apenas a aba de Assinatura.
 if st.session_state.autenticado:
     aba1, aba2, aba3, aba4 = st.tabs(["Criador", "Assinante", "Histórico", "📂 Arquivos Concluídos"])
 else:
-    aba2, = st.tabs(["Assinante"])
-
-# --- LER BANCO DE DADOS EM TEMPO REAL ---
-lista_banco = ler_dados_planilha()
+    # Criamos uma estrutura limpa sem risco de desestruturação nula
+    abas_usuario = st.tabs(["Assinante"])
+    aba2 = abas_usuario[0]
 
 # --- CONTEÚDO: CRIADOR ---
 if st.session_state.autenticado:
@@ -312,15 +315,11 @@ if st.session_state.autenticado:
             if lista_banco:
                 df_completo = pd.DataFrame(lista_banco)
                 
-                # --- NOVO FILTRO: Mantém apenas o que está "Pendente" ---
                 if "status" in df_completo.columns and "link_minuta" in df_completo.columns:
                     df_pendente = df_completo[df_completo["status"] == "Pendente"].copy()
                     
                     if not df_pendente.empty:
-                        # Extrai o nome amigável do arquivo pulando o token inicial (ex: "Contrato_X.pdf")
                         df_pendente["Arquivo"] = df_pendente["link_minuta"].apply(lambda x: str(x).split("_", 1)[-1] if "_" in str(x) else x)
-                        
-                        # Reorganiza a visualização trazendo o nome amigável do arquivo para a frente
                         colunas_ordenadas = ["Arquivo", "nome", "email", "status"]
                         colunas_existentes = [c for c in colunas_ordenadas if c in df_pendente.columns]
                         
@@ -335,6 +334,92 @@ if st.session_state.autenticado:
                     st.dataframe(df_completo, width="stretch")
             else:
                 st.info("Nenhum dado na planilha ou aguardando sincronização.")
+
+# --- CONTEÚDO: ASSINANTE ---
+with aba2:
+    st.title("🖋️ Assinatura Eletrônica de Documentos")
+    
+    assinante_atual = None
+    if token_acesso and lista_banco:
+        for a in lista_banco:
+            if str(a.get("token")) == str(token_acesso):
+                assinante_atual = a
+                break
+
+    st.subheader("1. Identificação do Assinante")
+    if assinante_atual:
+        st.success(f"Documento localizado para: {assinante_atual['nome']}")
+        
+        nome_do_pdf = assinante_atual.get("link_minuta")
+        caminho_completo_pdf = os.path.join(PASTA_LOCAL_MINUTAS, nome_do_pdf) if nome_do_pdf else ""
+        
+        if assinante_atual["status"] == "Pendente":
+            if nome_do_pdf and os.path.exists(caminho_completo_pdf):
+                st.markdown(f'### 📄 2. Leitura Obrigatória')
+                
+                with open(caminho_completo_pdf, "rb") as f_pdf:
+                    bytes_pdf = f_pdf.read()
+                
+                st.download_button(
+                    label="👉 Clique para baixar e ler a Minuta do Contrato (PDF)",
+                    data=bytes_pdf,
+                    file_name=nome_do_pdf.split("_", 1)[-1],
+                    mime="application/pdf",
+                    type="primary"
+                )
+                st.caption("Verifique todas as cláusulas do arquivo oficial baixado antes de prosseguir para a assinatura abaixo.")
+            else:
+                st.warning("O arquivo PDF desta minuta não foi localizado no servidor.")
+    else:
+        if token_acesso:
+            st.error("Token inválido ou expirado.")
+        else:
+            st.warning("Aguardando link de acesso exclusivo enviado por e-mail.")
+
+    if assinante_atual and assinante_atual["status"] == "Pendente":
+        st.markdown("### 📝 3. Validação Jurídica")
+        c_nome = st.text_input("Confirmar Nome Completo", value=assinante_atual["nome"] if assinante_atual else "")
+        c_cpf = st.text_input("Digitar CPF para assinatura")
+        
+        if st.button("✍️ Confirmar Assinatura", type="primary"):
+            if not lista_banco:
+                st.error("Erro: Banco de dados vazio.")
+            elif not c_nome or not c_cpf:
+                st.error("Erro: Preencha todos os campos.")
+            else:
+                encontrado = False
+                for a in lista_banco:
+                    valido = str(a.get("token")) == str(token_acesso) and a.get("status") == "Pendente"
+                        
+                    if valido:
+                        fuso_brasilia = timezone(timedelta(hours=-3))
+                        data_formatada = datetime.now(fuso_brasilia).strftime("%d/%m/%Y %H:%M:%S")
+                        
+                        sucesso_pdf = anexar_pagina_assinatura(
+                            caminho_pdf_original=caminho_completo_pdf,
+                            hash_original=a.get("hash_doc", "Não informado"),
+                            nome_assinante=c_nome,
+                            email_assinante=a.get("email", ""),
+                            cpf_assinante=c_cpf,
+                            data_assinatura=data_formatada
+                        )
+                        
+                        if sucesso_pdf:
+                            a["status"] = "Assinado"
+                            a["cpf"] = c_cpf
+                            a["data"] = data_formatada
+                            encontrado = True
+                        break
+                
+                if not encontrado:
+                    st.error("Erro: Falha ao processar assinatura ou o lote já foi assinado.")
+                else:
+                    salvar_dados_planilha(lista_banco)
+                    st.success("Sua assinatura foi validada e registrada com sucesso!")
+                    st.balloons()
+                    st.rerun()
+    elif assinante_atual and assinante_atual["status"] == "Assinado":
+        st.info("Este documento já foi devidamente assinado e validado eletronicamente. Obrigado!")
 
 # --- CONTEÚDO: HISTÓRICO ---
 if st.session_state.autenticado:
