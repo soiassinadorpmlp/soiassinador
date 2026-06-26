@@ -117,7 +117,7 @@ def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante
         story.append(Paragraph(texto_intro, style_texto))
         story.append(Spacer(1, 8))
         
-        # --- TABELA 1: CABEÇALHO DO DOCUMENTO (NOME DO ARQUIVO + DATA DISPONIBILIZAÇÃO) ---
+        # --- TABELA 1: CABEÇALHO DO DOCUMENTO ---
         story.append(Paragraph("Informações de Emissão", style_secao))
         
         dados_doc = [
@@ -170,7 +170,6 @@ def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante
                         Paragraph("<b>Data da Assinatura / Status</b>", style_texto)]]
         
         for co in co_assinantes:
-            # Se for o próprio usuário assinando agora, força a exibição dos dados atuais
             if str(co.get("token")) == str(st.query_params.get("token")):
                 status_txt = f"<font color='#2F855A'><b>{data_assinatura}</b></font>"
             elif co.get("status") == "Assinado":
@@ -509,7 +508,8 @@ with aba2:
                             encontrado = True
                         break
                 
-                if not encontrar:
+                # CORRIGIDO AQUI: Alterado de 'not encontrar' para 'not encontrado'
+                if not encontrado:
                     st.error("Erro: Falha ao processar assinatura ou o lote já foi assinado.")
                 else:
                     salvar_dados_planilha(lista_banco)
