@@ -51,29 +51,17 @@ def obter_cliente_sheets():
         st.error(f"Erro crítico nas credenciais do Sheets: {e}")
         return None
 
-def salvar_pdf_localmente(nome_arquivo, conteudo_bytes, token_lote):
-    try:
-        nome_seguro = f"{token_lote}_{nome_arquivo}"
-        caminho_final = os.path.join(PASTA_LOCAL_MINUTAS, nome_seguro)
-        with open(caminho_final, "wb") as f:
-            f.write(conteudo_bytes)
-        return nome_seguro
-    except Exception as e:
-        st.error(f"Erro ao salvar arquivo no servidor local: {e}")
-        return None
-
 # --- FUNÇÃO MOTORA: GERA A PÁGINA DE ASSINATURA E JUNTA AO PDF ORIGINAL ---
 def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante, email_assinante, cpf_assinante, data_assinatura):
     try:
         caminho_protocolo_temp = caminho_pdf_original.replace(".pdf", "_protocolo_temp.pdf")
         
-        # 1. Configuração do documento ReportLab (Folha A4/Letter com margens limpas)
+        # 1. Configuração do documento ReportLab
         doc = SimpleDocTemplate(caminho_protocolo_temp, pagesize=letter, leftMargin=36, rightMargin=36, topMargin=36, bottomMargin=36)
         story = []
         
         styles = getSampleStyleSheet()
         
-        # Estilos customizados idênticos ao layout enviado
         style_titulo = ParagraphStyle(
             'TituloProtocolo',
             parent=styles['Normal'],
@@ -101,12 +89,10 @@ def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante
             spaceAfter=15
         )
         
-        # Título e Identificador Hash
         story.append(Paragraph("PROTOCOLO DE ASSINATURAS DIGITAIS", style_titulo))
         story.append(Paragraph("Identificador Único (Hash SHA-256) do Original:", style_label))
         story.append(Paragraph(str(hash_original), style_hash))
         
-        # Linha divisória cinza
         t_linha = Table([[""]], colWidths=[540], rowHeights=[1])
         t_linha.setStyle(TableStyle([
             ('LINEBELOW', (0,0), (-1,-1), 1, colors.HexColor("#CBD5E0")),
@@ -116,7 +102,6 @@ def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante
         story.append(t_linha)
         story.append(Spacer(1, 25))
         
-        # Caixa de informações do Assinante
         texto_bloco = f"""
         <b>Assinante: {nome_assinante}</b><br/><br/>
         <font color="#4A5568">E-mail:</font> {email_assinante}<br/><br/>
@@ -133,7 +118,6 @@ def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante
         
         p_bloco = Paragraph(texto_bloco, style_bloco)
         
-        # Tabela simulando o container cinza claro de fundo com borda esquerda discreta
         t_bloco = Table([[p_bloco]], colWidths=[540])
         t_bloco.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#F7FAFC")),
@@ -146,23 +130,19 @@ def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante
         
         doc.build(story)
         
-        # 2. Mesclar a folha de assinaturas gerada ao final do PDF original usando pypdf
+        # 2. Mesclar folhas
         reader_original = PdfReader(caminho_pdf_original)
         reader_protocolo = PdfReader(caminho_protocolo_temp)
         writer = PdfWriter()
         
-        # Adiciona as páginas da minuta original
         for page in reader_original.pages:
             writer.add_page(page)
             
-        # Adiciona a folha de assinatura como a última página
         writer.add_page(reader_protocolo.pages[0])
         
-        # Sobrescreve o arquivo local para que ele já fique permanentemente assinado
         with open(caminho_pdf_original, "wb") as f_saida:
             writer.write(f_saida)
             
-        # Remove o arquivo temporário da folha isolada
         if os.path.exists(caminho_protocolo_temp):
             os.remove(caminho_protocolo_temp)
             
@@ -240,9 +220,9 @@ with st.sidebar:
 if token_acesso:
     st.session_state.autenticado = False
 
-# --- DEFINE VISIBILIDADE DAS ABAS ---
+# --- DEFINE VISIBILIDADE DAS ABAS (ADICIONADA ABA DE ARQUIVOS ASSINADOS) ---
 if st.session_state.autenticado:
-    aba1, aba2, aba3 = st.tabs(["Criador", "Assinante", "Histórico"])
+    aba1, aba2, aba3, aba4 = st.tabs(["Criador", "Assinante", "Histórico", "📂 Arquivos Concluídos"])
 else:
     aba2, = st.tabs(["Assinante"])
 
@@ -257,19 +237,37 @@ if st.session_state.autenticado:
             m_email = st.text_input("Gmail Envio", value=GMAIL_PADRAO)
             m_senha = st.text_input("Senha App", type="password")
             m_link = st.text_input("Link App", value=LINK_SISTEMA_PADRAO)
+            
+            # NOVO CAMPO: Nome final personalizado para o arquivo
+            m_nome_doc = st.text_input("Nome de Identificação do Arquivo (Ex: Contrato_Locacao_01)")
+            
             m_arq = st.file_uploader("Contrato PDF (Minuta)", type=["pdf"])
             m_lote = st.text_area("Lista (Nome; Email)")
             
             if st.button("🚀 Enviar Lote", type="primary"):
-                if m_arq is not None and m_lote.strip() and m_senha:
+                if m_arq is not None and m_lote.strip() and m_senha and m_nome_doc.strip():
                     pdf_conteudo = m_arq.getvalue()
                     
                     st.info("Processando e salvando a minuta com segurança...")
                     
-                    token_do_lote = secrets.token_hex(4)
-                    nome_salvo_local = salvar_pdf_localmente(m_arq.name, pdf_conteudo, token_do_lote)
+                    # Trata o nome digitado para garantir que termine com .pdf sem espaços perigosos
+                    nome_final_pdf = m_nome_doc.strip().replace(" ", "_")
+                    if not nome_final_pdf.lower().endswith(".pdf"):
+                        nome_final_pdf += ".pdf"
                     
-                    if not nome_salvo_local:
+                    token_do_lote = secrets.token_hex(4)
+                    # O arquivo agora é guardado com o nome exato inserido no input
+                    nome_salvo_local = f"{token_do_lote}_{nome_final_pdf}"
+                    
+                    caminho_final = os.path.join(PASTA_LOCAL_MINUTAS, nome_salvo_local)
+                    try:
+                        with open(caminho_final, "wb") as f:
+                            f.write(pdf_conteudo)
+                        sucesso_salvamento = True
+                    except:
+                        sucesso_salvamento = False
+                    
+                    if not sucesso_salvamento:
                         st.error("Falha ao salvar o arquivo no servidor do sistema.")
                     else:
                         hasher = hashlib.sha256()
@@ -310,7 +308,7 @@ if st.session_state.autenticado:
                         st.success("Lote enviado e gravado com sucesso!")
                         st.rerun()
                 else:
-                    st.error("Erro: Preencha a minuta PDF, a lista e a senha do Gmail.")
+                    st.error("Erro: Preencha TODOS os campos, incluindo o nome do arquivo, minuta, lista e senha.")
         with c2:
             st.subheader("Planilha Ativa")
             if lista_banco:
@@ -336,34 +334,30 @@ with aba2:
         nome_do_pdf = assinante_atual.get("link_minuta")
         caminho_completo_pdf = os.path.join(PASTA_LOCAL_MINUTAS, nome_do_pdf) if nome_do_pdf else ""
         
-        if nome_do_pdf and os.path.exists(caminho_completo_pdf):
-            st.markdown(f'### 📄 2. Leitura Obrigatória')
-            
-            with open(caminho_completo_pdf, "rb") as f_pdf:
-                bytes_pdf = f_pdf.read()
-            
-            # Se o documento já estiver assinado, o botão de download baixa a versão com a folha de rosto acoplada!
-            rotulo_botao = "👉 Baixar Documento Oficial Concluído (PDF)" if assinante_atual["status"] == "Assinado" else "👉 Clique para baixar e ler a Minuta do Contrato (PDF)"
-            
-            st.download_button(
-                label=rotulo_botao,
-                data=bytes_pdf,
-                file_name=nome_do_pdf.split("_", 1)[-1],
-                mime="application/pdf",
-                type="primary"
-            )
-            if assinante_atual["status"] != "Assinado":
+        # AJUSTE DE SEGURANÇA: O assinante só vê o botão de download se ainda NÃO tiver assinado
+        if assinante_atual["status"] == "Pendente":
+            if nome_do_pdf and os.path.exists(caminho_completo_pdf):
+                st.markdown(f'### 📄 2. Leitura Obrigatória')
+                
+                with open(caminho_completo_pdf, "rb") as f_pdf:
+                    bytes_pdf = f_pdf.read()
+                
+                st.download_button(
+                    label="👉 Clique para baixar e ler a Minuta do Contrato (PDF)",
+                    data=bytes_pdf,
+                    file_name=nome_do_pdf.split("_", 1)[-1],
+                    mime="application/pdf",
+                    type="primary"
+                )
                 st.caption("Verifique todas as cláusulas do arquivo oficial baixado antes de prosseguir para a assinatura abaixo.")
-        else:
-            if token_acesso:
-                st.warning("O arquivo PDF desta minuta não foi localizado no servidor local.")
+            else:
+                st.warning("O arquivo PDF desta minuta não foi localizado no servidor.")
     else:
         if token_acesso:
             st.error("Token inválido ou expirado.")
         else:
             st.warning("Aguardando link de acesso exclusivo enviado por e-mail.")
 
-    # Só exibe o bloco de assinatura se o documento de fato estiver pendente
     if assinante_atual and assinante_atual["status"] == "Pendente":
         st.markdown("### 📝 3. Validação Jurídica")
         c_nome = st.text_input("Confirmar Nome Completo", value=assinante_atual["nome"] if assinante_atual else "")
@@ -383,7 +377,6 @@ with aba2:
                         from datetime import datetime
                         data_formatada = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
                         
-                        # EXECUTORES DA MÁGICA: Gera o protocolo na folha final do PDF físico
                         sucesso_pdf = anexar_pagina_assinatura(
                             caminho_pdf_original=caminho_completo_pdf,
                             hash_original=a.get("hash_doc", "Não informado"),
@@ -408,7 +401,7 @@ with aba2:
                     st.balloons()
                     st.rerun()
     elif assinante_atual and assinante_atual["status"] == "Assinado":
-        st.info("Este documento já foi devidamente assinado e validado eletronicamente.")
+        st.info("Este documento já foi devidamente assinado e validado eletronicamente. Obrigado!")
 
 # --- CONTEÚDO: HISTÓRICO ---
 if st.session_state.autenticado:
@@ -416,3 +409,51 @@ if st.session_state.autenticado:
         st.subheader("Histórico de Assinaturas (Realtime)")
         if lista_banco:
             st.dataframe(pd.DataFrame(lista_banco), width="stretch")
+
+# --- CONTEÚDO: NOVA ABA 4 EXCLUSIVA DO CRIADOR (DOWNLOADS DOS CONCLUÍDOS) ---
+if st.session_state.autenticado:
+    with aba4:
+        st.subheader("📂 Download de Documentos Completamente Assinados")
+        st.caption("Esta área é restrita e exibe apenas os arquivos que já receberam a folha de protocolo.")
+        
+        if lista_banco:
+            # Filtra apenas os registros com status "Assinado"
+            assinados = [reg for reg in lista_banco if reg.get("status") == "Assinado"]
+            
+            if assinados:
+                # Agrupa por arquivo único para não repetir botões se houver múltiplos assinantes no mesmo lote
+                arquivos_processados = set()
+                
+                for doc_assinado in assinados:
+                    nome_arquivo_sistema = doc_assinado.get("link_minuta")
+                    
+                    if nome_arquivo_sistema and nome_arquivo_sistema not in arquivos_processados:
+                        arquivos_processados.add(nome_arquivo_sistema)
+                        caminho_pdf_final = os.path.join(PASTA_LOCAL_MINUTAS, nome_arquivo_sistema)
+                        
+                        # Nome legível sem o token inicial para exibição na tela
+                        nome_exibicao_limpo = nome_arquivo_sistema.split("_", 1)[-1]
+                        
+                        col_nome, col_btn = st.columns([3, 1])
+                        with col_nome:
+                            st.markdown(f"📄 **{nome_exibicao_limpo}**")
+                            st.caption(f"Assinado por: {doc_assinado.get('nome')} ({doc_assinado.get('data')})")
+                        
+                        with col_btn:
+                            if os.path.exists(caminho_pdf_final):
+                                with open(caminho_pdf_final, "rb") as f_down:
+                                    bytes_down = f_down.read()
+                                st.download_button(
+                                    label="⬇️ Baixar PDF Final",
+                                    data=bytes_down,
+                                    file_name=nome_exibicao_limpo,
+                                    mime="application/pdf",
+                                    key=f"down_{nome_arquivo_sistema}"
+                                )
+                            else:
+                                st.error("Arquivo não localizado")
+                        st.divider()
+            else:
+                st.info("Nenhum documento assinado foi registrado até o momento.")
+        else:
+            st.info("Aguardando sincronização de dados.")
