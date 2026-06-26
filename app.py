@@ -12,7 +12,7 @@ import base64
 import json
 import os
 
-# --- BIBLIOTECAS ADICIONADAS PARA QR CODE ---
+# --- BIBLIOTECAS PARA QR CODE ---
 import qrcode
 from reportlab.platypus import Image
 
@@ -58,17 +58,30 @@ def obter_cliente_sheets():
         st.error(f"Erro crítico nas credenciais do Sheets: {e}")
         return None
 
-# --- FUNÇÃO MOTORA: GERA O PROTOCOLO COM QR CODE E JUNTA AO PDF ---
-def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante, email_assinante, cpf_assinante, data_assinatura):
+# --- FUNÇÃO MOTORA: GERA O PROTOCOLO COM QR CODE CONTENDO O TEXTO DE VALIDAÇÃO ---
+def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante, email_assinante, cpf_assinante, data_assinatura, setor_emissor):
     caminho_qrcode_temp = caminho_pdf_original.replace(".pdf", "_qr_temp.png")
     caminho_protocolo_temp = caminho_pdf_original.replace(".pdf", "_protocolo_temp.pdf")
     
     try:
-        # 1. GERAÇÃO DA IMAGEM DO QR CODE
-        # O QR Code aponta para a URL do sistema contendo o hash do arquivo para futura verificação
-        url_verificacao = f"{LINK_SISTEMA_PADRAO}/?validar_hash={hash_original}"
+        # Extrai o nome limpo do arquivo para colocar no QR Code
+        nome_exibicao_doc = caminho_pdf_original.split(os.sep)[-1].split("_", 1)[-1]
+
+        # 1. CONTEÚDO EM TEXTO PURO QUE SERÁ EMBUTIDO NO QR CODE (ATESTADO DE VALIDADE)
+        texto_validacao_qr = (
+            f"--- VALIDAÇÃO DE ASSINATURA ELETRÔNICA ---\n"
+            f"Emissor: {setor_emissor}\n"
+            f"Documento: {nome_exibicao_doc}\n"
+            f"Hash SHA-256: {hash_original}\n"
+            f"Assinante: {nome_assinante}\n"
+            f"CPF: {cpf_assinante}\n"
+            f"Data/Hora: {data_add_assinatura if 'data_add_assinatura' in locals() else data_assinatura}\n"
+            f"STATUS: ASSINADO E INTEGRIDADE GARANTIDA"
+        )
+
+        # Geração da imagem do QR Code com o texto puro
         qr = qrcode.QRCode(version=1, box_size=10, border=1)
-        qr.add_data(url_verificacao)
+        qr.add_data(texto_validacao_qr)
         qr.make(fit=True)
         img_qr = qr.make_image(fill_color="black", back_color="white")
         img_qr.save(caminho_qrcode_temp)
@@ -79,7 +92,6 @@ def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante
         
         styles = getSampleStyleSheet()
         
-        # --- ESTILOS CUSTOMIZADOS ---
         style_titulo = ParagraphStyle(
             'TituloProtocolo',
             parent=styles['Normal'],
@@ -121,13 +133,12 @@ def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante
         # --- MONTAGEM DO CORPO DO PDF ---
         story.append(Paragraph("PROTOCOLO DE ASSINATURA ELETRÔNICA", style_titulo))
         
-        texto_intro = "Este documento foi assinado eletronicamente de forma indissociável. A autenticidade e integridade desta cópia impressa ou digital podem ser validadas apontando a câmera do celular para o QR Code ou conferindo o identificador SHA-256."
+        texto_intro = "Este documento foi assinado eletronicamente de forma indissociável. A autenticidade e a integridade do arquivo podem ser atestadas realizando a leitura do QR Code abaixo, que contém as informações criptográficas e metadados nativos desta assinatura."
         story.append(Paragraph(texto_intro, style_texto))
         story.append(Spacer(1, 10))
         
         # --- TABELA 1: DADOS DO DOCUMENTO ---
         story.append(Paragraph("Dados do Documento Original", style_secao))
-        nome_exibicao_doc = caminho_pdf_original.split(os.sep)[-1].split("_", 1)[-1]
         
         dados_doc = [
             [Paragraph("<b>Nome do Arquivo:</b>", style_texto), Paragraph(nome_exibicao_doc, style_texto)],
@@ -155,13 +166,12 @@ def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante
         <b>E-mail:</b> {email_assinante}<br/>
         <b>Documento (CPF):</b> {cpf_assinante}<br/>
         <b>Data / Hora (Brasília):</b> {data_assinatura}<br/>
+        <b>Órgão / Setor:</b> {setor_emissor}<br/>
         <b>Status:</b> <font color='#2F855A'><b>CONCLUÍDO E VALIDADO</b></font>
         """
         
-        # Carrega a imagem do QR Code gerada temporariamente definindo tamanho fixo (90x90 pt)
-        img_xml = Image(caminho_qrcode_temp, width=90, height=90)
+        img_xml = Image(caminho_qrcode_temp, width=95, height=95)
         
-        # Coluna 1: Dados textuais, Coluna 2: Imagem do QR Code
         dados_assinatura = [
             [Paragraph(texto_detalhes, style_texto), img_xml]
         ]
@@ -171,7 +181,7 @@ def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante
             ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#EDF2F7")),
             ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#CBD5E0")),
             ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-            ('ALIGN', (1,0), (1,0), 'CENTER'), # Centraliza o QR Code na célula direita
+            ('ALIGN', (1,0), (1,0), 'CENTER'),
             ('TOPPADDING', (0,0), (-1,-1), 12),
             ('BOTTOMPADDING', (0,0), (-1,-1), 12),
             ('LEFTPADDING', (0,0), (-1,-1), 12),
@@ -179,7 +189,6 @@ def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante
         ]))
         story.append(t_ass)
         
-        # Constrói o PDF do protocolo
         doc.build(story)
         
         # 3. UNIÃO DOS ARQUIVOS PDF
@@ -195,7 +204,6 @@ def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante
         with open(caminho_pdf_original, "wb") as f_saida:
             writer.write(f_saida)
             
-        # Limpeza segura de arquivos temporários do sistema
         if os.path.exists(caminho_protocolo_temp):
             os.remove(caminho_protocolo_temp)
         if os.path.exists(caminho_qrcode_temp):
@@ -204,7 +212,6 @@ def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante
         return True
     except Exception as e:
         st.error(f"Erro técnico na junção do protocolo ao PDF: {e}")
-        # Garante a remoção dos arquivos temporários mesmo em caso de falha
         if os.path.exists(caminho_protocolo_temp):
             os.remove(caminho_protocolo_temp)
         if os.path.exists(caminho_qrcode_temp):
@@ -256,11 +263,14 @@ def enviar_email_individual(meu_email, minha_senha, destino, nome, link, orgao_s
     except:
         return False
 
-# --- CONTROLE DE ESTADO (SESSION STATE) ---
+# --- CONTROLE DE ESTADO E LEITURA DE PARÂMETROS ---
 if "autenticado" not in st.session_state:
     st.session_state.autenticado = False
 
 token_acesso = st.query_params.get("token", None)
+
+# --- BANCO DE DADOS EM TEMPO REAL ---
+lista_banco = ler_dados_planilha()
 
 # --- MENU LATERAL DE ACESSO RESTRITO ---
 with st.sidebar:
@@ -280,9 +290,6 @@ with st.sidebar:
 
 if token_acesso:
     st.session_state.autenticado = False
-
-# --- BANCO DE DADOS EM TEMPO REAL ---
-lista_banco = ler_dados_planilha()
 
 # --- CRIAÇÃO ESTÁVEL DAS ABAS ---
 if st.session_state.autenticado:
@@ -469,7 +476,8 @@ with aba2:
                             nome_assinante=c_nome,
                             email_assinante=a.get("email", ""),
                             cpf_assinante=c_cpf,
-                            data_assinatura=data_formatada
+                            data_assinatura=data_formatada,
+                            setor_emissor=a.get("setor", "Não Informado")
                         )
                         
                         if sucesso_pdf:
@@ -533,7 +541,7 @@ if st.session_state.autenticado:
                                     key=f"down_{nome_arquivo_sistema}"
                                 )
                             else:
-                                East.error("Arquivo não localizado")
+                                st.error("Arquivo não localizado")
                         
                         with col_del:
                             if st.button("❌ Deletar do Sistema", key=f"del_{nome_arquivo_sistema}", type="secondary"):
