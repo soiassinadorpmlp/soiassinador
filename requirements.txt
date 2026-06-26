@@ -2,4 +2,5 @@ gspread
 gspread-dataframe
 pandas
 streamlit
-google-api-python-client
+reportlab
+pypdf
