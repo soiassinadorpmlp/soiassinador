@@ -54,23 +54,20 @@ def obter_cliente_sheets():
         st.error(f"Erro crítico nas credenciais do Sheets: {e}")
         return None
 
-# --- FUNÇÃO MOTORA: GERA O PROTOCOLO ATUALIZADO ---
+# --- FUNÇÃO MOTORA: GERA O PROTOCOLO ATUALIZADO SEQUENCIALMENTE ---
 def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante, email_assinante, cpf_assinante, data_assinatura, setor_emissor, banco_completo, link_minuta_atual):
     caminho_protocolo_temp = caminho_pdf_original.replace(".pdf", "_protocolo_temp.pdf")
     
     try:
         nome_exibicao_doc = caminho_pdf_original.split(os.sep)[-1].split("_", 1)[-1]
 
-        # CORREÇÃO CRÍTICA: Filtra rigorosamente apenas quem pertence a ESTE arquivo/lote específico
+        # Filtra rigorosamente apenas as pessoas deste lote específico
         co_assinantes = [reg for reg in banco_completo if str(reg.get("link_minuta")) == str(link_minuta_atual)]
-        
-        # Define a data de disponibilização baseada no lote atual
         data_disponibilizacao = co_assinantes[0].get("data_criacao", "-") if co_assinantes else "-"
 
-        # Determina o STATUS Geral do Documento avaliando o lote específico
+        # Determina o STATUS Geral do Documento avaliando o lote completo
         algum_pendente = False
         for co in co_assinantes:
-            # Desconsidera o assinante atual da checagem de pendência, pois ele está assinando agora
             if str(co.get("token")) == str(st.query_params.get("token")):
                 continue
             if co.get("status") != "Assinado":
@@ -103,7 +100,7 @@ def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante
             fontName='Helvetica-Bold',
             fontSize=11,
             textColor=colors.HexColor("#2C5282"),
-            spaceBefore=14,
+            spaceBefore=12,
             spaceAfter=6
         )
         
@@ -132,64 +129,82 @@ def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante
         story.append(Paragraph(texto_intro, style_texto))
         story.append(Spacer(1, 4))
         
-        # --- TABELA 1: INFORMAÇÕES DE EMISSÃO ---
+        # --- TABELA 1: CABEÇALHO (INFORMAÇÕES DE EMISSÃO) ---
         story.append(Paragraph("Informações de Emissão", style_secao))
-        
         dados_doc = [
             [Paragraph(f"<b>Documento:</b> {nome_exibicao_doc}", style_texto), 
              Paragraph(f"<b>Disponibilizado em:</b> {data_disponibilizacao}", style_texto)],
             [Paragraph(f"<b>Setor Responsável:</b> {setor_emissor} / Prefeitura Municipal de Lençóis Paulista", style_texto),
              Paragraph(f"<b>STATUS:</b> {status_geral_html}", style_texto)]
         ]
-        
         t_doc = Table(dados_doc, colWidths=[310, 210])
         t_doc.setStyle(TableStyle([
             ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#F7FAFC")),
             ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#E2E8F0")),
             ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-            ('TOPPADDING', (0,0), (-1,-1), 8),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 8),
+            ('TOPPADDING', (0,0), (-1,-1), 6),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 6),
             ('LEFTPADDING', (0,0), (-1,-1), 10),
             ('RIGHTPADDING', (0,0), (-1,-1), 10),
         ]))
         story.append(t_doc)
         
-        # --- TABELA 2: DADOS DA ASSINATURA ATUAL ---
-        story.append(Paragraph("Assinatura Processada Neste Momento", style_secao))
+        # --- TABELA 2: HISTÓRICO SEQUENCIAL DE ASSINATURAS COLHIDAS ---
+        story.append(Paragraph("Assinaturas Registradas", style_secao))
         
-        texto_detalhes = f"""
-        <b>Assinante Atual:</b> {nome_assinante}<br/>
-        <b>E-mail:</b> {email_assinante}<br/>
-        <b>Documento (CPF):</b> {cpf_assinante}<br/>
-        <b>Data / Hora da Ação (Brasília):</b> {data_assinatura}
-        """
-        
-        t_ass = Table([[Paragraph(texto_detalhes, style_texto)]], colWidths=[520])
-        t_ass.setStyle(TableStyle([
-            ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#EDF2F7")),
-            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#CBD5E0")),
-            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-            ('TOPPADDING', (0,0), (-1,-1), 10),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 10),
-            ('LEFTPADDING', (0,0), (-1,-1), 12),
-            ('RIGHTPADDING', (0,0), (-1,-1), 12),
-        ]))
-        story.append(t_ass)
-        
-        # --- TABELA 3: FLUXO E STATUS DOS INTEGRANTES DO LOTE ---
-        story.append(Paragraph("Fluxo de Assinaturas do Documento", style_secao))
-        
+        # Varre o banco para empilhar sequencialmente quem JÁ assinou (ou quem está assinando agora)
+        houve_assinatura = False
+        for co in co_assinantes:
+            e_o_proprio = str(co.get("token")) == str(st.query_params.get("token"))
+            ja_assinou = co.get("status") == "Assinado"
+            
+            if e_o_proprio or ja_assinou:
+                houve_assinatura = True
+                
+                # Coleta os metadados corretos
+                nome_exibir = nome_assinante if e_o_proprio else co.get("nome")
+                email_exibir = email_assinante if e_o_proprio else co.get("email")
+                cpf_exibir = cpf_assinante if e_o_proprio else co.get("cpf")
+                data_exibir = data_signature = data_formatada if e_o_proprio else co.get("data")
+                # Fallback de segurança se a variável interna falhar
+                if e_o_proprio:
+                    data_exibir = data_assinatura
+                
+                texto_detalhes = f"""
+                <b>Assinante:</b> {nome_exibir}<br/>
+                <b>E-mail:</b> {email_exibir} | <b>CPF:</b> {cpf_exibir}<br/>
+                <b>Data / Hora da Assinatura (Brasília):</b> {data_exibir}
+                """
+                
+                t_ass = Table([[Paragraph(texto_detalhes, style_texto)]], colWidths=[520])
+                t_ass.setStyle(TableStyle([
+                    ('BACKGROUND', (0,0), (-1,-1), colors.HexColor("#EDF2F7")),
+                    ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#CBD5E0")),
+                    ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+                    ('TOPPADDING', (0,0), (-1,-1), 8),
+                    ('BOTTOMPADDING', (0,0), (-1,-1), 8),
+                    ('LEFTPADDING', (0,0), (-1,-1), 12),
+                    ('RIGHTPADDING', (0,0), (-1,-1), 12),
+                ]))
+                story.append(t_ass)
+                story.append(Spacer(1, 4)) # Pequeno espaço entre assinantes empilhados
+
+        if not houve_assinatura:
+            story.append(Paragraph("Nenhuma assinatura colhida até o momento.", style_texto))
+            
+        # --- TABELA 3: FLUXO COMPLETO DE STATUS AO FINAL ---
+        story.append(Paragraph("Fluxo de Assinaturas do Documento (Controle)", style_secao))
         dados_fluxo = [[Paragraph("<b>Nome do Integrante</b>", style_texto), 
                         Paragraph("<b>E-mail</b>", style_texto), 
-                        Paragraph("<b>Data da Assinatura / Status</b>", style_texto)]]
+                        Paragraph("<b>Status do Fluxo</b>", style_texto)]]
         
         for co in co_assinantes:
             if str(co.get("token")) == str(st.query_params.get("token")):
-                status_txt = f"<font color='#2F855A'><b>{data_assinatura}</b></font>"
+                status_txt = f"<font color='#2F855A'><b>Assinado em {data_assinatura}</b></font>"
             elif co.get("status") == "Assinado":
-                status_txt = f"<font color='#2F855A'><b>{co.get('data')}</b></font>"
+                status_txt = f"<font color='#2F855A'><b>Assinado em {co.get('data')}</b></font>"
             else:
-                status_txt = "<font color='#C53030'><b>Pendente</b></font>"
+                status_txt = "<font color='#C53030'><b>Pendente de Ação</b></font>"
                 
             dados_fluxo.append([
                 Paragraph(str(co.get("nome")), style_texto),
@@ -202,13 +217,13 @@ def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante
             ('BACKGROUND', (0,0), (-1,0), colors.HexColor("#E2E8F0")),
             ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor("#CBD5E0")),
             ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
-            ('TOPPADDING', (0,0), (-1,-1), 6),
-            ('BOTTOMPADDING', (0,0), (-1,-1), 6),
+            ('TOPPADDING', (0,0), (-1,-1), 5),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 5),
             ('LEFTPADDING', (0,0), (-1,-1), 8),
             ('RIGHTPADDING', (0,0), (-1,-1), 8),
         ]))
         story.append(t_fluxo)
-        story.append(Spacer(1, 20))
+        story.append(Spacer(1, 15))
         
         # --- TABELA 4: RODAPÉ COM IDENTIFICADOR HASH ---
         story.append(Paragraph("<b>Identificador de Validação Criptográfica (Hash SHA-256):</b>", style_texto))
@@ -225,14 +240,32 @@ def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante
         
         doc.build(story)
         
-        # UNIÃO DOS ARQUIVOS PDF
+        # UNIÃO CRÍTICA: Lemos a minuta ORIGINAL para descartar folhas de protocolos antigas e acoplar a nova com todos
         reader_original = PdfReader(caminho_pdf_original)
         reader_protocolo = PdfReader(caminho_protocolo_temp)
         writer = PdfWriter()
         
-        for page in reader_original.pages:
-            writer.add_page(page)
+        # Conta quantas páginas de protocolo já foram coladas anteriormente analisando a lista da planilha.
+        # Nós queremos pegar APENAS as páginas do documento original inicial (antes de qualquer assinatura).
+        # Como o tamanho original puro é estático, podemos ler a primeira versão ou apenas ignorar as páginas finais recalculadas.
+        # Estratégia infalível: Se o lote possui N assinantes, e o documento ganha 1 folha de assinaturas atualizada que substitui as anteriores:
+        # Descobrimos quantas páginas reais tem a minuta original calculando o total menos a última página se ela já contiver assinaturas.
+        total_paginas_agora = len(reader_original.pages)
+        
+        # Se alguém já assinou antes, a última página atual é o protocolo antigo. Nós descartamos ela!
+        ja_existia_assinatura = False
+        for co in co_assinantes:
+            if co.get("status") == "Assinado" and str(co.get("token")) != str(st.query_params.get("token")):
+                ja_existia_assinatura = True
+                break
+                
+        limite_paginas_minuta = total_paginas_agora - 1 if ja_existia_assinatura else total_paginas_agora
+        
+        # Adiciona apenas as páginas puras do contrato original
+        for i in range(limite_paginas_minuta):
+            writer.add_page(reader_original.pages[i])
             
+        # Adiciona a folha de assinatura unificada contendo todos
         writer.add_page(reader_protocolo.pages[0])
         
         with open(caminho_pdf_original, "wb") as f_saida:
@@ -577,7 +610,7 @@ if st.session_state.autenticado:
                                     key=f"down_{nome_arquivo_sistema}"
                                 )
                             else:
-                                st.error("Arquivo não localizado") # PONTO REMOVIDO DAQUI CORETAMENTE
+                                st.error("Arquivo não localizado")
                         
                         with col_del:
                             if st.button("❌ Deletar do Sistema", key=f"del_{nome_arquivo_sistema}", type="secondary"):
