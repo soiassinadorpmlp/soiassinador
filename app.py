@@ -186,7 +186,7 @@ def enviar_email_individual(meu_email, minha_senha, destino, nome, link, orgao_s
         msg['To'] = destino
         msg['Subject'] = f"Assinatura Digital Pendente - {nome_documento}"
         
-        corpo = f"Olá, {nome}.\n\nVocê foi incluído para assinar um documento da {orgao_setor}, chamado {nome_documento}.\n\nAcesse pelo link seguro abaixo para ler a minuta e assinar:\n{link}\n\nPara validar a assinatura, basta digitar seu nome completo e CPF. Não é necessário realizar login."
+        corpo = f"Olá, {nome}.\n\nVocê foi incluído para assinar um documento de {orgao_setor}, chamado {nome_documento}.\n\nAcesse pelo link seguro abaixo para ler a minuta e assinar:\n{link}\n\nPara validar a assinatura, basta digitar seu nome completo e CPF. Não é necessário realizar login."
         
         msg.attach(MIMEText(corpo, 'plain', 'utf-8'))
         servidor = smtplib.SMTP_SSL("smtp.gmail.com", 465)
