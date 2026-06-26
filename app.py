@@ -132,7 +132,7 @@ def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante
         story.append(Paragraph(texto_intro, style_texto))
         story.append(Spacer(1, 4))
         
-        # --- TABELA 1: INFORMAÇÕES DE EMISSÃO (COM DADOS INSTITUCIONAIS REORGANIZADOS) ---
+        # --- TABELA 1: INFORMAÇÕES DE EMISSÃO ---
         story.append(Paragraph("Informações de Emissão", style_secao))
         
         dados_doc = [
@@ -154,7 +154,7 @@ def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante
         ]))
         story.append(t_doc)
         
-        # --- TABELA 2: DADOS DA ASSINATURA ATUAL (LIMPA E DIRETA) ---
+        # --- TABELA 2: DADOS DA ASSINATURA ATUAL ---
         story.append(Paragraph("Assinatura Processada Neste Momento", style_secao))
         
         texto_detalhes = f"""
@@ -577,7 +577,7 @@ if st.session_state.autenticado:
                                     key=f"down_{nome_arquivo_sistema}"
                                 )
                             else:
-                                .st.error("Arquivo não localizado")
+                                st.error("Arquivo não localizado") # PONTO REMOVIDO DAQUI CORETAMENTE
                         
                         with col_del:
                             if st.button("❌ Deletar do Sistema", key=f"del_{nome_arquivo_sistema}", type="secondary"):
