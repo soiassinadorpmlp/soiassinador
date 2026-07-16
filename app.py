@@ -152,7 +152,6 @@ def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante
         # --- TABELA 2: HISTÓRICO SEQUENCIAL DE ASSINATURAS COLHIDAS ---
         story.append(Paragraph("Assinaturas Registradas", style_secao))
         
-        # Varre o banco para empilhar sequencialmente quem JÁ assinou (ou quem está assinando agora)
         houve_assinatura = False
         for co in co_assinantes:
             e_o_proprio = str(co.get("token")) == str(st.query_params.get("token"))
@@ -161,14 +160,10 @@ def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante
             if e_o_proprio or ja_assinou:
                 houve_assinatura = True
                 
-                # Coleta os metadados corretos
                 nome_exibir = nome_assinante if e_o_proprio else co.get("nome")
                 email_exibir = email_assinante if e_o_proprio else co.get("email")
                 cpf_exibir = cpf_assinante if e_o_proprio else co.get("cpf")
-                data_exibir = data_signature = data_formatada if e_o_proprio else co.get("data")
-                # Fallback de segurança se a variável interna falhar
-                if e_o_proprio:
-                    data_exibir = data_assinatura
+                data_exibir = data_assinatura if e_o_proprio else co.get("data")
                 
                 texto_detalhes = f"""
                 <b>Assinante:</b> {nome_exibir}<br/>
@@ -187,7 +182,7 @@ def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante
                     ('RIGHTPADDING', (0,0), (-1,-1), 12),
                 ]))
                 story.append(t_ass)
-                story.append(Spacer(1, 4)) # Pequeno espaço entre assinantes empilhados
+                story.append(Spacer(1, 4))
 
         if not houve_assinatura:
             story.append(Paragraph("Nenhuma assinatura colhida até o momento.", style_texto))
@@ -240,19 +235,12 @@ def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante
         
         doc.build(story)
         
-        # UNIÃO CRÍTICA: Lemos a minuta ORIGINAL para descartar folhas de protocolos antigas e acoplar a nova com todos
+        # UNIÃO CRÍTICA DOS ARQUIVOS
         reader_original = PdfReader(caminho_pdf_original)
         reader_protocolo = PdfReader(caminho_protocolo_temp)
         writer = PdfWriter()
         
-        # Conta quantas páginas de protocolo já foram coladas anteriormente analisando a lista da planilha.
-        # Nós queremos pegar APENAS as páginas do documento original inicial (antes de qualquer assinatura).
-        # Como o tamanho original puro é estático, podemos ler a primeira versão ou apenas ignorar as páginas finais recalculadas.
-        # Estratégia infalível: Se o lote possui N assinantes, e o documento ganha 1 folha de assinaturas atualizada que substitui as anteriores:
-        # Descobrimos quantas páginas reais tem a minuta original calculando o total menos a última página se ela já contiver assinaturas.
         total_paginas_agora = len(reader_original.pages)
-        
-        # Se alguém já assinou antes, a última página atual é o protocolo antigo. Nós descartamos ela!
         ja_existia_assinatura = False
         for co in co_assinantes:
             if co.get("status") == "Assinado" and str(co.get("token")) != str(st.query_params.get("token")):
@@ -261,11 +249,9 @@ def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante
                 
         limite_paginas_minuta = total_paginas_agora - 1 if ja_existia_assinatura else total_paginas_agora
         
-        # Adiciona apenas as páginas puras do contrato original
         for i in range(limite_paginas_minuta):
             writer.add_page(reader_original.pages[i])
             
-        # Adiciona a folha de assinatura unificada contendo todos
         writer.add_page(reader_protocolo.pages[0])
         
         with open(caminho_pdf_original, "wb") as f_saida:
@@ -461,15 +447,41 @@ if st.session_state.autenticado:
                     df_pendente = df_completo[df_completo["status"] == "Pendente"].copy()
                     
                     if not df_pendente.empty:
+                        # Limpa o nome do arquivo para exibição
                         df_pendente["Arquivo"] = df_pendente["link_minuta"].apply(lambda x: str(x).split("_", 1)[-1] if "_" in str(x) else x)
-                        colunas_ordenadas = ["Arquivo", "setor", "nome", "email", "status"]
-                        colunas_existentes = [c for c in colunas_ordenadas if c in df_pendente.columns]
                         
-                        st.dataframe(
-                            df_pendente[colunas_existentes].rename(columns={"setor": "Órgão/Setor", "nome": "Nome", "email": "E-mail", "status": "Status"}),
-                            width="stretch",
-                            hide_index=True
-                        )
+                        # --- NOVO QUADRO DE REENVIO INTERATIVO ---
+                        # Em vez de uma tabela estática, geramos linhas dinâmicas com botões individuais
+                        for idx, reg in df_pendente.iterrows():
+                            # Monta o link exclusivo de assinatura baseado na URL base configurada
+                            base_url_app = m_link.split("?")[0] if m_link else LINK_SISTEMA_PADRAO
+                            link_assinante = f"{base_url_app}?token={reg['token']}"
+                            
+                            col_info, col_btn = st.columns([3, 1])
+                            with col_info:
+                                st.markdown(f"📄 **{reg['Arquivo']}**")
+                                st.caption(f"Setor: {reg['setor']} | Assinante: {reg['nome']} ({reg['email']})")
+                            
+                            with col_btn:
+                                # Botão individual para reenvio do e-mail de cobrança
+                                if st.button("📨 Cobrar", key=f"reenvio_{reg['token']}", type="secondary"):
+                                    if m_senha:
+                                        sucesso_envio = enviar_email_individual(
+                                            meu_email=m_email,
+                                            minha_senha=m_senha,
+                                            destino=reg['email'],
+                                            nome=reg['nome'],
+                                            link=link_assinante,
+                                            orgao_setor=reg['setor'],
+                                            nome_documento=reg['Arquivo'].replace(".pdf", "")
+                                        )
+                                        if sucesso_envio:
+                                            st.success(f"E-mail enviado para {reg['nome']}!")
+                                        else:
+                                            st.error("Falha ao enviar e-mail.")
+                                    else:
+                                        st.error("Por favor, insira a 'Senha App' no formulário para disparar o reenvio.")
+                            st.divider()
                     else:
                         st.success("🎉 Excelente! Não há nenhuma assinatura pendente no momento.")
                 else:
