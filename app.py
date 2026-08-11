@@ -8,9 +8,12 @@ import pandas as pd
 from gspread_dataframe import set_with_dataframe
 import gspread
 from google.oauth2.service_account import Credentials
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 import base64
 import json
 import os
+import io
 
 # --- CONTROLE DE FUSO HORÁRIO ---
 from datetime import datetime, timedelta, timezone
@@ -29,7 +32,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- CONTROLE DE ESTADO DA SESSÃO (INICIALIZAÇÃO OBRIGATÓRIA AQUI) ---
+# --- CONTROLE DE ESTADO DA SESSÃO ---
 if "autenticado" not in st.session_state:
     st.session_state.autenticado = False
 
@@ -37,6 +40,7 @@ if "autenticado" not in st.session_state:
 GMAIL_PADRAO = "soiassinadorpmlp@gmail.com"
 LINK_SISTEMA_PADRAO = "https://engenhariapmlp.streamlit.app"
 SPREADSHEET_ID = "13Vyiy-XBzR969JPTMJlWK3gpKcLRi9ftVRcO3kinoWE"
+ID_PASTA_DRIVE = "17OnYc2wazoWg-1Out5vn0_pjAf3_UxR_"
 
 PASTA_LOCAL_MINUTAS = "minutas"
 if not os.path.exists(PASTA_LOCAL_MINUTAS):
@@ -44,7 +48,10 @@ if not os.path.exists(PASTA_LOCAL_MINUTAS):
 
 # --- CONEXÃO SEGURA VIA BASE64 ---
 def obter_credenciais():
-    escopos = ["https://www.googleapis.com/auth/spreadsheets"]
+    escopos = [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive"
+    ]
     b64_data = st.secrets["GOOGLE_CREDS_BASE64"]
     json_string = base64.b64decode(b64_data).decode('utf-8')
     creds_dict = json.loads(json_string)
@@ -58,7 +65,92 @@ def obter_cliente_sheets():
         st.error(f"Erro crítico nas credenciais do Sheets: {e}")
         return None
 
-# --- FUNÇÃO MOTORA: GERA O PROTOCOLO ATUALIZADO SEQUENCIALMENTE ---
+def obter_servico_drive():
+    try:
+        creds = obter_credenciais()
+        return build('drive', 'v3', credentials=creds)
+    except Exception as e:
+        st.error(f"Erro crítico ao conectar com Google Drive: {e}")
+        return None
+
+# --- FUNÇÕES DE MANIPULAÇÃO NO GOOGLE DRIVE ---
+def salvar_pdf_no_drive(caminho_local_pdf, nome_arquivo_drive):
+    try:
+        servico = obter_servico_drive()
+        if not servico:
+            return None
+
+        # Verifica se já existe um arquivo com este nome na pasta do Drive
+        query = f"'{ID_PASTA_DRIVE}' in parents and name = '{nome_arquivo_drive}' and trashed = false"
+        resultados = servico.files().list(q=query, fields="files(id, name)").execute()
+        arquivos = resultados.get('files', [])
+
+        media = MediaFileUpload(caminho_local_pdf, mimetype='application/pdf', resumable=True)
+
+        if arquivos:
+            # Atualiza o arquivo existente
+            file_id = arquivos[0]['id']
+            servico.files().update(fileId=file_id, media_body=media).execute()
+        else:
+            # Cria um arquivo novo na pasta
+            metadata = {
+                'name': nome_arquivo_drive,
+                'parents': [ID_PASTA_DRIVE]
+            }
+            novo_arquivo = servico.files().create(body=metadata, media_body=media, fields='id').execute()
+            file_id = novo_arquivo.get('id')
+
+        return file_id
+    except Exception as e:
+        st.error(f"Erro ao salvar arquivo no Google Drive: {e}")
+        return None
+
+def baixar_pdf_do_drive(nome_arquivo_drive, caminho_destino_local):
+    try:
+        servico = obter_servico_drive()
+        if not servico:
+            return False
+
+        query = f"'{ID_PASTA_DRIVE}' in parents and name = '{nome_arquivo_drive}' and trashed = false"
+        resultados = servico.files().list(q=query, fields="files(id, name)").execute()
+        arquivos = resultados.get('files', [])
+
+        if not arquivos:
+            return False
+
+        file_id = arquivos[0]['id']
+        request = servico.files().get_media(fileId=file_id)
+        
+        with open(caminho_destino_local, 'wb') as f:
+            downloader = MediaIoBaseDownload(f, request)
+            done = False
+            while not done:
+                status, done = downloader.next_chunk()
+
+        return True
+    except Exception as e:
+        st.error(f"Erro ao baixar arquivo do Google Drive: {e}")
+        return False
+
+def deletar_pdf_do_drive(nome_arquivo_drive):
+    try:
+        servico = obter_servico_drive()
+        if not servico:
+            return False
+
+        query = f"'{ID_PASTA_DRIVE}' in parents and name = '{nome_arquivo_drive}' and trashed = false"
+        resultados = servico.files().list(q=query, fields="files(id, name)").execute()
+        arquivos = resultados.get('files', [])
+
+        for arq in arquivos:
+            servico.files().delete(fileId=arq['id']).execute()
+
+        return True
+    except Exception as e:
+        st.error(f"Erro ao deletar arquivo do Drive: {e}")
+        return False
+
+# --- FUNÇÃO MOTORA: GERA E ATUALIZA PROTOCOLO NO DRIVE ---
 def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante, email_assinante, cpf_assinante, data_assinatura, setor_emissor, banco_completo, link_minuta_atual):
     caminho_protocolo_temp = caminho_pdf_original.replace(".pdf", "_protocolo_temp.pdf")
     
@@ -83,59 +175,22 @@ def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante
 
         doc = SimpleDocTemplate(caminho_protocolo_temp, pagesize=letter, leftMargin=45, rightMargin=45, topMargin=45, bottomMargin=45)
         story = []
-        
         styles = getSampleStyleSheet()
         
-        style_titulo = ParagraphStyle(
-            'TituloProtocolo',
-            parent=styles['Normal'],
-            fontName='Helvetica-Bold',
-            fontSize=16,
-            textColor=colors.HexColor("#1A365D"),
-            spaceAfter=12,
-            alignment=1
-        )
-        
-        style_secao = ParagraphStyle(
-            'SubSecao',
-            parent=styles['Normal'],
-            fontName='Helvetica-Bold',
-            fontSize=11,
-            textColor=colors.HexColor("#2C5282"),
-            spaceBefore=12,
-            spaceAfter=6
-        )
-        
-        style_texto = ParagraphStyle(
-            'TextoComum',
-            parent=styles['Normal'],
-            fontName='Helvetica',
-            fontSize=10,
-            leading=14,
-            textColor=colors.HexColor("#2D3748")
-        )
-
-        style_hash = ParagraphStyle(
-            'TextoHash',
-            parent=styles['Normal'],
-            fontName='Courier',
-            fontSize=9,
-            leading=11,
-            textColor=colors.HexColor("#4A5568")
-        )
+        style_titulo = ParagraphStyle('TituloProtocolo', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=16, textColor=colors.HexColor("#1A365D"), spaceAfter=12, alignment=1)
+        style_secao = ParagraphStyle('SubSecao', parent=styles['Normal'], fontName='Helvetica-Bold', fontSize=11, textColor=colors.HexColor("#2C5282"), spaceBefore=12, spaceAfter=6)
+        style_texto = ParagraphStyle('TextoComum', parent=styles['Normal'], fontName='Helvetica', fontSize=10, leading=14, textColor=colors.HexColor("#2D3748"))
+        style_hash = ParagraphStyle('TextoHash', parent=styles['Normal'], fontName='Courier', fontSize=9, leading=11, textColor=colors.HexColor("#4A5568"))
         
         story.append(Paragraph("PROTOCOLO DE ASSINATURA ELETRÔNICA", style_titulo))
-        
         texto_intro = "Este documento foi processado eletronicamente. A autenticidade e a integridade do arquivo podem ser conferidas por meio do identificador de segurança posicionado no rodapé desta página."
         story.append(Paragraph(texto_intro, style_texto))
         story.append(Spacer(1, 4))
         
         story.append(Paragraph("Informações de Emissão", style_secao))
         dados_doc = [
-            [Paragraph(f"<b>Documento:</b> {nome_exibicao_doc}", style_texto), 
-             Paragraph(f"<b>Disponibilizado em:</b> {data_disponibilizacao}", style_texto)],
-            [Paragraph(f"<b>Setor Responsável:</b> {setor_emissor} / Prefeitura Municipal de Lençóis Paulista", style_texto),
-             Paragraph(f"<b>STATUS:</b> {status_geral_html}", style_texto)]
+            [Paragraph(f"<b>Documento:</b> {nome_exibicao_doc}", style_texto), Paragraph(f"<b>Disponibilizado em:</b> {data_disponibilizacao}", style_texto)],
+            [Paragraph(f"<b>Setor Responsável:</b> {setor_emissor} / Prefeitura Municipal de Lençóis Paulista", style_texto), Paragraph(f"<b>STATUS:</b> {status_geral_html}", style_texto)]
         ]
         t_doc = Table(dados_doc, colWidths=[310, 210])
         t_doc.setStyle(TableStyle([
@@ -158,7 +213,6 @@ def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante
             
             if e_o_proprio or ja_assinou:
                 houve_assinatura = True
-                
                 nome_exibir = nome_assinante if e_o_proprio else co.get("nome")
                 email_exibir = email_assinante if e_o_proprio else co.get("email")
                 cpf_exibir = cpf_assinante if e_o_proprio else co.get("cpf")
@@ -187,9 +241,7 @@ def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante
             story.append(Paragraph("Nenhuma assinatura colhida até o momento.", style_texto))
             
         story.append(Paragraph("Fluxo de Assinaturas do Documento (Controle)", style_secao))
-        dados_fluxo = [[Paragraph("<b>Nome do Integrante</b>", style_texto), 
-                        Paragraph("<b>E-mail</b>", style_texto), 
-                        Paragraph("<b>Status do Fluxo</b>", style_texto)]]
+        dados_fluxo = [[Paragraph("<b>Nome do Integrante</b>", style_texto), Paragraph("<b>E-mail</b>", style_texto), Paragraph("<b>Status do Fluxo</b>", style_texto)]]
         
         for co in co_assinantes:
             if str(co.get("token")) == str(st.query_params.get("token")):
@@ -199,11 +251,7 @@ def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante
             else:
                 status_txt = "<font color='#C53030'><b>Pendente de Ação</b></font>"
                 
-            dados_fluxo.append([
-                Paragraph(str(co.get("nome")), style_texto),
-                Paragraph(str(co.get("email")), style_texto),
-                Paragraph(status_txt, style_texto)
-            ])
+            dados_fluxo.append([Paragraph(str(co.get("nome")), style_texto), Paragraph(str(co.get("email")), style_texto), Paragraph(status_txt, style_texto)])
             
         t_fluxo = Table(dados_fluxo, colWidths=[180, 180, 160])
         t_fluxo.setStyle(TableStyle([
@@ -256,6 +304,8 @@ def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante
         if os.path.exists(caminho_protocolo_temp):
             os.remove(caminho_protocolo_temp)
             
+        # Salva a nova versão com assinatura atualizada diretamente no Google Drive
+        salvar_pdf_no_drive(caminho_pdf_original, link_minuta_atual)
         return True
     except Exception as e:
         st.error(f"Erro técnico na junção do protocolo ao PDF: {e}")
@@ -369,7 +419,7 @@ if st.session_state.autenticado:
                 else:
                     pdf_conteudo = m_arq.getvalue()
                     
-                    st.info("Processando e salvando a minuta com segurança...")
+                    st.info("Processando e salvando a minuta com segurança no Google Drive...")
                     
                     nome_final_pdf = m_nome_doc.strip().replace(" ", "_")
                     if not nome_final_pdf.lower().endswith(".pdf"):
@@ -378,13 +428,16 @@ if st.session_state.autenticado:
                     token_do_lote = secrets.token_hex(4)
                     nome_salvo_local = f"{token_do_lote}_{nome_final_pdf}"
                     
-                    caminho_final = os.path.join(PASTA_LOCAL_MINUTAS, nome_salvo_local)
+                    caminho_final_local = os.path.join(PASTA_LOCAL_MINUTAS, nome_salvo_local)
                     try:
-                        with open(caminho_final, "wb") as f:
+                        with open(caminho_final_local, "wb") as f:
                             f.write(pdf_conteudo)
-                        sucesso_salvamento = True
+                        
+                        # Salva a minuta permanente no Google Drive
+                        id_drive = salvar_pdf_no_drive(caminho_final_local, nome_salvo_local)
+                        sucesso_salvamento = True if id_drive else False
                     except Exception as e_save:
-                        st.error(f"Erro ao salvar arquivo no servidor: {e_save}")
+                        st.error(f"Erro ao salvar arquivo no sistema: {e_save}")
                         sucesso_salvamento = False
                     
                     if sucesso_salvamento:
@@ -436,8 +489,10 @@ if st.session_state.autenticado:
                         
                         lista_updated = lista_banco + novos_assinantes if lista_banco else novos_assinantes
                         salvar_dados_planilha(lista_updated)
-                        st.success("Lote enviado e gravado com sucesso!")
+                        st.success("Lote enviado e salvo permanentemente no Google Drive com sucesso!")
                         st.rerun()
+                    else:
+                        st.error("Falha ao salvar o arquivo no Google Drive. Verifique a permissão do ID da pasta.")
         with c2:
             st.subheader("📋 Assinaturas Pendentes")
             if lista_banco:
@@ -502,6 +557,10 @@ with aba2:
         nome_do_pdf = assinante_atual.get("link_minuta")
         caminho_completo_pdf = os.path.join(PASTA_LOCAL_MINUTAS, nome_do_pdf) if nome_do_pdf else ""
         
+        # Se o arquivo não existir localmente por conta do repouso, busca automaticamente do Google Drive
+        if nome_do_pdf and not os.path.exists(caminho_completo_pdf):
+            baixar_pdf_do_drive(nome_do_pdf, caminho_completo_pdf)
+        
         if assinante_atual["status"] == "Pendente":
             if nome_do_pdf and os.path.exists(caminho_completo_pdf):
                 st.markdown(f'### 📄 2. Leitura Obrigatória')
@@ -518,7 +577,7 @@ with aba2:
                 )
                 st.caption("Verifique todas as cláusulas do arquivo oficial baixado antes de prosseguir para a assinatura abaixo.")
             else:
-                st.warning("O arquivo PDF desta minuta não foi localizado no servidor.")
+                st.warning("O arquivo PDF desta minuta não foi localizado no Google Drive.")
     else:
         if token_acesso:
             st.error("Token inválido ou expirado.")
@@ -544,6 +603,10 @@ with aba2:
                         fuso_brasilia = timezone(timedelta(hours=-3))
                         data_formatada = datetime.now(fuso_brasilia).strftime("%d/%m/%Y %H:%M:%S")
                         
+                        # Garante a existência do arquivo local antes de aplicar a folha
+                        if not os.path.exists(caminho_completo_pdf):
+                            baixar_pdf_do_drive(nome_do_pdf, caminho_completo_pdf)
+
                         sucesso_pdf = anexar_pagina_assinatura(
                             caminho_pdf_original=caminho_completo_pdf,
                             hash_original=a.get("hash_doc", "Não informado"),
@@ -600,6 +663,10 @@ if st.session_state.autenticado:
                         caminho_pdf_final = os.path.join(PASTA_LOCAL_MINUTAS, nome_arquivo_sistema)
                         nome_exibicao_limpo = nome_arquivo_sistema.split("_", 1)[-1]
                         
+                        # Se não estiver salvo na memória do contêiner, traz do Google Drive
+                        if not os.path.exists(caminho_pdf_final):
+                            baixar_pdf_do_drive(nome_arquivo_sistema, caminho_pdf_final)
+
                         col_nome, col_btn, col_del = st.columns([3, 1, 1])
                         with col_nome:
                             st.markdown(f"📄 **{nome_exibicao_limpo}**")
@@ -617,17 +684,20 @@ if st.session_state.autenticado:
                                     key=f"down_{nome_arquivo_sistema}"
                                 )
                             else:
-                                st.error("Arquivo não localizado")
+                                st.error("Arquivo não localizado no Drive")
                         
                         with col_del:
                             if st.button("❌ Deletar do Sistema", key=f"del_{nome_arquivo_sistema}", type="secondary"):
                                 if os.path.exists(caminho_pdf_final):
                                     os.remove(caminho_pdf_final)
                                 
+                                # Remove do Google Drive também
+                                deletar_pdf_do_drive(nome_arquivo_sistema)
+                                
                                 lista_filtrada = [reg for reg in lista_banco if reg.get("link_minuta") != nome_arquivo_sistema]
                                 salvar_dados_planilha(lista_filtrada)
                                 
-                                st.success(f"Arquivo {nome_exibicao_limpo} excluído!")
+                                st.success(f"Arquivo {nome_exibicao_limpo} excluído com sucesso do sistema e do Drive!")
                                 st.rerun()
                                 
                         st.divider()
