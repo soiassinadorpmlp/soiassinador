@@ -13,7 +13,6 @@ from googleapiclient.http import MediaFileUpload, MediaIoBaseDownload
 import base64
 import json
 import os
-import io
 
 # --- CONTROLE DE FUSO HORÁRIO ---
 from datetime import datetime, timedelta, timezone
@@ -47,14 +46,17 @@ if not os.path.exists(PASTA_LOCAL_MINUTAS):
     os.makedirs(PASTA_LOCAL_MINUTAS)
 
 # --- CONEXÃO SEGURA VIA BASE64 ---
+def obter_credenciais_dict():
+    b64_data = st.secrets["GOOGLE_CREDS_BASE64"]
+    json_string = base64.b64decode(b64_data).decode('utf-8')
+    return json.loads(json_string)
+
 def obter_credenciais():
     escopos = [
         "https://www.googleapis.com/auth/spreadsheets",
         "https://www.googleapis.com/auth/drive"
     ]
-    b64_data = st.secrets["GOOGLE_CREDS_BASE64"]
-    json_string = base64.b64decode(b64_data).decode('utf-8')
-    creds_dict = json.loads(json_string)
+    creds_dict = obter_credenciais_dict()
     return Credentials.from_service_account_info(creds_dict, scopes=escopos)
 
 def obter_cliente_sheets():
@@ -80,30 +82,63 @@ def salvar_pdf_no_drive(caminho_local_pdf, nome_arquivo_drive):
         if not servico:
             return None
 
-        # Verifica se já existe um arquivo com este nome na pasta do Drive
+        # Busca se o arquivo já existe na pasta do Drive
         query = f"'{ID_PASTA_DRIVE}' in parents and name = '{nome_arquivo_drive}' and trashed = false"
-        resultados = servico.files().list(q=query, fields="files(id, name)").execute()
+        resultados = servico.files().list(
+            q=query, 
+            fields="files(id, name)",
+            supportsAllDrives=True,
+            includeItemsFromAllDrives=True
+        ).execute()
         arquivos = resultados.get('files', [])
 
         media = MediaFileUpload(caminho_local_pdf, mimetype='application/pdf', resumable=True)
 
         if arquivos:
-            # Atualiza o arquivo existente
             file_id = arquivos[0]['id']
-            servico.files().update(fileId=file_id, media_body=media).execute()
+            servico.files().update(
+                fileId=file_id, 
+                media_body=media,
+                supportsAllDrives=True
+            ).execute()
         else:
-            # Cria um arquivo novo na pasta
             metadata = {
                 'name': nome_arquivo_drive,
                 'parents': [ID_PASTA_DRIVE]
             }
-            novo_arquivo = servico.files().create(body=metadata, media_body=media, fields='id').execute()
+            novo_arquivo = servico.files().create(
+                body=metadata, 
+                media_body=media, 
+                fields='id, parents',
+                supportsAllDrives=True
+            ).execute()
             file_id = novo_arquivo.get('id')
 
         return file_id
     except Exception as e:
-        st.error(f"Erro ao salvar arquivo no Google Drive: {e}")
-        return None
+        # Fallback para contornar restrição de cota da Conta de Serviço
+        try:
+            servico = obter_servico_drive()
+            media = MediaFileUpload(caminho_local_pdf, mimetype='application/pdf', resumable=True)
+            
+            temp_file = servico.files().create(
+                body={'name': nome_arquivo_drive},
+                media_body=media,
+                fields='id',
+                supportsAllDrives=True
+            ).execute()
+            file_id = temp_file.get('id')
+            
+            servico.files().update(
+                fileId=file_id,
+                addParents=ID_PASTA_DRIVE,
+                fields='id, parents',
+                supportsAllDrives=True
+            ).execute()
+            return file_id
+        except Exception as e2:
+            st.error(f"Erro ao salvar arquivo no Google Drive: {e2}")
+            return None
 
 def baixar_pdf_do_drive(nome_arquivo_drive, caminho_destino_local):
     try:
@@ -112,7 +147,12 @@ def baixar_pdf_do_drive(nome_arquivo_drive, caminho_destino_local):
             return False
 
         query = f"'{ID_PASTA_DRIVE}' in parents and name = '{nome_arquivo_drive}' and trashed = false"
-        resultados = servico.files().list(q=query, fields="files(id, name)").execute()
+        resultados = servico.files().list(
+            q=query, 
+            fields="files(id, name)",
+            supportsAllDrives=True,
+            includeItemsFromAllDrives=True
+        ).execute()
         arquivos = resultados.get('files', [])
 
         if not arquivos:
@@ -139,11 +179,16 @@ def deletar_pdf_do_drive(nome_arquivo_drive):
             return False
 
         query = f"'{ID_PASTA_DRIVE}' in parents and name = '{nome_arquivo_drive}' and trashed = false"
-        resultados = servico.files().list(q=query, fields="files(id, name)").execute()
+        resultados = servico.files().list(
+            q=query, 
+            fields="files(id, name)",
+            supportsAllDrives=True,
+            includeItemsFromAllDrives=True
+        ).execute()
         arquivos = resultados.get('files', [])
 
         for arq in arquivos:
-            servico.files().delete(fileId=arq['id']).execute()
+            servico.files().delete(fileId=arq['id'], supportsAllDrives=True).execute()
 
         return True
     except Exception as e:
@@ -304,7 +349,6 @@ def anexar_pagina_assinatura(caminho_pdf_original, hash_original, nome_assinante
         if os.path.exists(caminho_protocolo_temp):
             os.remove(caminho_protocolo_temp)
             
-        # Salva a nova versão com assinatura atualizada diretamente no Google Drive
         salvar_pdf_no_drive(caminho_pdf_original, link_minuta_atual)
         return True
     except Exception as e:
@@ -393,6 +437,13 @@ else:
 # --- CONTEÚDO: CRIADOR ---
 if st.session_state.autenticado:
     with aba1:
+        try:
+            dict_creds = obter_credenciais_dict()
+            email_robo = dict_creds.get("client_email", "Não identificado")
+            st.info(f"🔑 **E-mail do Robô para compartilhar no Google Drive:** `{email_robo}`")
+        except:
+            pass
+
         c1, c2 = st.columns(2)
         with c1:
             m_email = st.text_input("Gmail Envio", value=GMAIL_PADRAO, key="input_gmail")
@@ -433,7 +484,6 @@ if st.session_state.autenticado:
                         with open(caminho_final_local, "wb") as f:
                             f.write(pdf_conteudo)
                         
-                        # Salva a minuta permanente no Google Drive
                         id_drive = salvar_pdf_no_drive(caminho_final_local, nome_salvo_local)
                         sucesso_salvamento = True if id_drive else False
                     except Exception as e_save:
@@ -492,7 +542,7 @@ if st.session_state.autenticado:
                         st.success("Lote enviado e salvo permanentemente no Google Drive com sucesso!")
                         st.rerun()
                     else:
-                        st.error("Falha ao salvar o arquivo no Google Drive. Verifique a permissão do ID da pasta.")
+                        st.error("Falha ao salvar o arquivo no Google Drive. Verifique se a pasta no Drive está compartilhada com o e-mail do robô informado acima como Editor.")
         with c2:
             st.subheader("📋 Assinaturas Pendentes")
             if lista_banco:
@@ -557,7 +607,6 @@ with aba2:
         nome_do_pdf = assinante_atual.get("link_minuta")
         caminho_completo_pdf = os.path.join(PASTA_LOCAL_MINUTAS, nome_do_pdf) if nome_do_pdf else ""
         
-        # Se o arquivo não existir localmente por conta do repouso, busca automaticamente do Google Drive
         if nome_do_pdf and not os.path.exists(caminho_completo_pdf):
             baixar_pdf_do_drive(nome_do_pdf, caminho_completo_pdf)
         
@@ -603,7 +652,6 @@ with aba2:
                         fuso_brasilia = timezone(timedelta(hours=-3))
                         data_formatada = datetime.now(fuso_brasilia).strftime("%d/%m/%Y %H:%M:%S")
                         
-                        # Garante a existência do arquivo local antes de aplicar a folha
                         if not os.path.exists(caminho_completo_pdf):
                             baixar_pdf_do_drive(nome_do_pdf, caminho_completo_pdf)
 
@@ -663,7 +711,6 @@ if st.session_state.autenticado:
                         caminho_pdf_final = os.path.join(PASTA_LOCAL_MINUTAS, nome_arquivo_sistema)
                         nome_exibicao_limpo = nome_arquivo_sistema.split("_", 1)[-1]
                         
-                        # Se não estiver salvo na memória do contêiner, traz do Google Drive
                         if not os.path.exists(caminho_pdf_final):
                             baixar_pdf_do_drive(nome_arquivo_sistema, caminho_pdf_final)
 
@@ -691,7 +738,6 @@ if st.session_state.autenticado:
                                 if os.path.exists(caminho_pdf_final):
                                     os.remove(caminho_pdf_final)
                                 
-                                # Remove do Google Drive também
                                 deletar_pdf_do_drive(nome_arquivo_sistema)
                                 
                                 lista_filtrada = [reg for reg in lista_banco if reg.get("link_minuta") != nome_arquivo_sistema]
