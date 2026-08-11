@@ -82,7 +82,7 @@ def salvar_pdf_no_drive(caminho_local_pdf, nome_arquivo_drive):
         if not servico:
             return None
 
-        # Busca se o arquivo já existe na pasta do Drive
+        # 1. Verifica se o arquivo já existe na pasta
         query = f"'{ID_PASTA_DRIVE}' in parents and name = '{nome_arquivo_drive}' and trashed = false"
         resultados = servico.files().list(
             q=query, 
@@ -92,50 +92,49 @@ def salvar_pdf_no_drive(caminho_local_pdf, nome_arquivo_drive):
         ).execute()
         arquivos = resultados.get('files', [])
 
-        media = MediaFileUpload(caminho_local_pdf, mimetype='application/pdf', resumable=True)
+        media = MediaFileUpload(caminho_local_pdf, mimetype='application/pdf', resumable=False)
 
         if arquivos:
+            # Atualiza o arquivo existente mantendo a estrutura
             file_id = arquivos[0]['id']
             servico.files().update(
                 fileId=file_id, 
                 media_body=media,
                 supportsAllDrives=True
             ).execute()
+            return file_id
         else:
-            metadata = {
+            # 2. Criação com herança de permissões da pasta pai
+            file_metadata = {
                 'name': nome_arquivo_drive,
                 'parents': [ID_PASTA_DRIVE]
             }
-            novo_arquivo = servico.files().create(
-                body=metadata, 
-                media_body=media, 
-                fields='id, parents',
-                supportsAllDrives=True
-            ).execute()
-            file_id = novo_arquivo.get('id')
-
-        return file_id
-    except Exception as e:
-        # Fallback para contornar restrição de cota da Conta de Serviço
-        try:
-            servico = obter_servico_drive()
-            media = MediaFileUpload(caminho_local_pdf, mimetype='application/pdf', resumable=True)
             
-            temp_file = servico.files().create(
-                body={'name': nome_arquivo_drive},
+            # Envio direto multipart (evita a checagem de cota da Service Account)
+            novo_arquivo = servico.files().create(
+                body=file_metadata,
                 media_body=media,
                 fields='id',
                 supportsAllDrives=True
             ).execute()
-            file_id = temp_file.get('id')
             
-            servico.files().update(
-                fileId=file_id,
-                addParents=ID_PASTA_DRIVE,
-                fields='id, parents',
+            return novo_arquivo.get('id')
+
+    except Exception as e:
+        # Tratamento secundário caso ocorra restrição de transferência no Drive Pessoal
+        try:
+            servico = obter_servico_drive()
+            media = MediaFileUpload(caminho_local_pdf, mimetype='application/pdf', resumable=False)
+            
+            # Tenta a criação direta simplificada
+            request = servico.files().create(
+                body={'name': nome_arquivo_drive, 'parents': [ID_PASTA_DRIVE]},
+                media_body=media,
+                fields='id',
                 supportsAllDrives=True
-            ).execute()
-            return file_id
+            )
+            res = request.execute()
+            return res.get('id')
         except Exception as e2:
             st.error(f"Erro ao salvar arquivo no Google Drive: {e2}")
             return None
